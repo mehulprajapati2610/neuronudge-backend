@@ -1,13 +1,19 @@
-FROM eclipse-temurin:17-jdk
+# ---------- Build Stage ----------
+FROM maven:3.9.9-eclipse-temurin-17 AS build
 
 WORKDIR /app
 
 COPY . .
 
-RUN chmod +x mvnw || true
+RUN mvn clean package -DskipTests
 
-RUN ./mvnw clean package -DskipTests || mvn clean package -DskipTests
+# ---------- Runtime Stage ----------
+FROM eclipse-temurin:17-jre
+
+WORKDIR /app
+
+COPY --from=build /app/target/neuronudge-1.0.0.jar app.jar
 
 EXPOSE 8080
 
-CMD ["java", "-jar", "target/neuronudge-1.0.0.jar"]
+ENTRYPOINT ["java","-jar","app.jar"]
