@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Doctor Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1200px;margin:0 auto;padding:32px 24px;}
+    .page-header{margin-bottom:28px;}
+    .greeting{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;}
+    .greeting em{color:var(--teal);font-style:italic;}
+    .date-str{color:var(--muted);font-size:0.9rem;margin-top:4px;}
+    .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;transition:all 0.2s;}
+    .stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.3);}
+    .stat-label{font-size:0.78rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .stat-dot{width:7px;height:7px;border-radius:50%;}
+    .stat-value{font-size:2rem;font-weight:700;letter-spacing:-0.03em;line-height:1;}
+    .stat-sub{font-size:0.8rem;color:var(--muted);margin-top:6px;}
+    .layout{display:grid;grid-template-columns:1fr 380px;gap:20px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .card-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .card-title{font-size:0.95rem;font-weight:600;}
+    .appt-row{display:grid;grid-template-columns:1fr auto auto auto;gap:16px;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(42,51,71,0.5);transition:background 0.15s;}
+    .appt-row:hover{background:rgba(42,51,71,0.3);}
+    .appt-row:last-child{border-bottom:none;}
+    .appt-header-row{display:grid;grid-template-columns:1fr auto auto auto;gap:16px;padding:10px 22px;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:500;border-bottom:1px solid var(--border);}
+    .p-avatar{width:34px;height:34px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:var(--muted);flex-shrink:0;}
+    .p-name{font-size:0.875rem;font-weight:500;}
+    .p-time{font-size:0.78rem;color:var(--muted);}
+    .status-badge{font-size:0.75rem;padding:3px 10px;border-radius:99px;font-weight:500;}
+    .status-PENDING{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+    .status-ACCEPTED{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+    .status-REJECTED{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);}
+    .status-COMPLETED{background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.2);}
+    .status-CANCELLED{background:rgba(251,146,60,0.08);color:#fb923c;border:1px solid rgba(251,146,60,0.15);}
+    .actions{display:flex;gap:6px;}
+    .btn-accept{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.25);color:#4ade80;border-radius:7px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+    .btn-accept:hover{background:rgba(74,222,128,0.2);}
+    .btn-reject{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.2);color:#f87171;border-radius:7px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+    .btn-reject:hover{background:rgba(239,68,68,0.2);}
+    .patient-list{padding:12px;}
+    .patient-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:10px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;}
+    .patient-item:hover{background:var(--surface2);border-color:var(--border);}
+    .p-av-lg{width:38px;height:38px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--muted);flex-shrink:0;}
+    .p-info{flex:1;}
+    .p-nm{font-size:0.875rem;font-weight:500;}
+    .p-risk-txt{font-size:0.75rem;color:var(--muted);}
+    .risk-indicator{font-size:0.72rem;padding:2px 8px;border-radius:99px;font-weight:600;}
+    .risk-HIGH{background:rgba(249,115,22,0.12);color:#f97316;border:1px solid rgba(249,115,22,0.25);}
+    .risk-MEDIUM{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+    .risk-LOW{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+    .risk-UNKNOWN{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.2);}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);}
+    .modal-overlay.open{display:flex;}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:420px;animation:mIn 0.2s ease;}
+    @keyframes mIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+    .modal-title{font-size:1.1rem;font-weight:600;margin-bottom:6px;}
+    .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:18px;}
+    select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;transition:border-color 0.2s;}
+    select:focus,textarea:focus{border-color:var(--accent);}
+    select option{background:var(--surface2);}
+    .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:0.875rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+    .btn-cancel-close{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:10px 18px;font-size:0.875rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
+    .quick-actions{display:flex;flex-direction:column;gap:8px;padding:12px;}
+    .qa-btn{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all 0.15s;text-decoration:none;color:var(--text);}
+    .qa-btn:hover{border-color:rgba(79,142,247,0.3);}
+    .qa-icon{font-size:1rem;}
+    .qa-label{font-size:0.875rem;font-weight:500;}
+    .qa-sub{font-size:0.75rem;color:var(--muted);}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  </style>
+</head>
+<body>
+<script>requireAuth(); renderNavbar('dashboard');</script>
+<div class="page">
+  <div class="page-header">
+    <div class="greeting">Welcome back, <em id="docName">Doctor</em></div>
+    <div class="date-str" id="dateStr"></div>
+  </div>
+
+  <div class="grid4">
+    <div class="stat-card"><div class="stat-label"><span class="stat-dot" style="background:#4f8ef7;"></span>Today's Appointments</div><div class="stat-value" id="cntToday">—</div><div class="stat-sub">Scheduled for today</div></div>
+    <div class="stat-card"><div class="stat-label"><span class="stat-dot" style="background:#fbbf24;"></span>Pending Requests</div><div class="stat-value" id="cntPending">—</div><div class="stat-sub">Awaiting your response</div></div>
+    <div class="stat-card"><div class="stat-label"><span class="stat-dot" style="background:#f87171;"></span>High Burnout Patients</div><div class="stat-value" id="cntBurnout">—</div><div class="stat-sub">Require attention</div></div>
+    <div class="stat-card"><div class="stat-label"><span class="stat-dot" style="background:#4ade80;"></span>Total Patients</div><div class="stat-value" id="cntPatients">—</div><div class="stat-sub">Registered users</div></div>
+  </div>
+
+  <div class="layout">
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Appointment Requests</div>
+          <span style="font-size:0.75rem;background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);border-radius:99px;padding:3px 10px;" id="pendingBadge">Loading…</span>
+        </div>
+        <div class="appt-header-row"><span>Patient</span><span>Requested</span><span>Status</span><span>Actions</span></div>
+        <div id="apptList"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="card">
+        <div class="card-header"><div class="card-title">Patients at Risk</div><a href="patients.html" style="font-size:0.8rem;color:var(--accent);text-decoration:none;">View all →</a></div>
+        <div class="patient-list" id="patientList"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title">Quick Actions</div></div>
+        <div class="quick-actions">
+          <a href="patients.html" class="qa-btn"><div class="qa-icon">👥</div><div><div class="qa-label">View All Patients</div><div class="qa-sub">Review wellness data</div></div></a>
+          <a href="doctor-appointments.html" class="qa-btn"><div class="qa-icon">📅</div><div><div class="qa-label">Manage Schedule</div><div class="qa-sub">Full appointment view</div></div></a>
+          <div class="qa-btn" onclick="openRecModal()"><div class="qa-icon">✉</div><div><div class="qa-label">Send Recommendation</div><div class="qa-sub">Message a patient</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div class="modal-title">Reject Appointment</div>
+    <div class="modal-sub">Please provide a reason so the patient can reschedule.</div>
+    <select id="rejectReason">
+      <option>Unavailable at this time</option>
+      <option>Schedule conflict</option>
+      <option>Emergency leave</option>
+      <option>Patient should see a specialist</option>
+      <option>Other</option>
+    </select>
+    <textarea id="rejectNote" placeholder="Additional notes (optional)…" rows="3"></textarea>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-cancel-close" style="flex:1;" onclick="document.getElementById('rejectModal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" style="flex:1;background:#ef4444;" onclick="confirmReject()">Reject Request</button>
+    </div>
+  </div>
+</div>
+
+<!-- Recommendation Modal -->
+<div class="modal-overlay" id="recModal">
+  <div class="modal">
+    <div class="modal-title">Send Recommendation</div>
+    <div class="modal-sub">Send a wellness recommendation to a patient.</div>
+    <select id="recPatient"></select>
+    <textarea id="recText" rows="4" placeholder="Write your recommendation here…"></textarea>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-cancel-close" style="flex:1;" onclick="document.getElementById('recModal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" style="flex:1;" onclick="sendRecommendation()">Send</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  requireAuth();
+  document.getElementById('dateStr').textContent = new Date().toLocaleDateString('en-US', {weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  document.getElementById('docName').textContent = (sessionStorage.getItem('name') || 'Doctor').split(' ').slice(-1)[0];
+
+  let rejectApptId = null;
+  let allPatients = [];
+
+  async function loadDashboard() {
+    try {
+      const stats = await API.get('/api/doctor/dashboard');
+      document.getElementById('cntToday').textContent    = stats.todayAppointments   ?? '0';
+      document.getElementById('cntPending').textContent  = stats.pendingRequests      ?? '0';
+      document.getElementById('cntBurnout').textContent  = stats.highBurnoutPatients  ?? '0';
+      document.getElementById('cntPatients').textContent = stats.totalPatients        ?? '0';
+    } catch (e) {
+      console.error('Stats error:', e);
+    }
+  }
+
+  async function loadAppointments() {
+    const list = document.getElementById('apptList');
+    list.innerHTML = `<div style="padding:20px;">${skeleton(3)}</div>`;
+    try {
+      const appts = await API.get('/api/doctor/appointments');
+      if (!appts || appts.length === 0) {
+        list.innerHTML = emptyState('📭', 'No appointment requests yet');
+        document.getElementById('pendingBadge').textContent = '0 pending';
+        return;
+      }
+      const pending = appts.filter(a => a.status === 'PENDING').length;
+      document.getElementById('pendingBadge').textContent = pending + ' pending';
+      list.innerHTML = appts.map(a => `
+        <div class="appt-row">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="p-avatar">${a.patientInitials || '?'}</div>
+            <div>
+              <div class="p-name">${a.patientName}</div>
+              <div class="p-time">${a.burnoutScore !== null ? 'Burnout: ' + a.burnoutScore + '%' : 'No check-in data'}</div>
+            </div>
+          </div>
+          <div style="font-size:0.85rem;color:var(--muted);">${fmtDate(a.date)}<br/>${a.time || ''}</div>
+          <span class="status-badge status-${a.status}">${cap(a.status)}</span>
+          <div class="actions">
+            ${a.status === 'PENDING' ? `
+              <button class="btn-accept" onclick="acceptAppt('${a.id}')">Accept</button>
+              <button class="btn-reject" onclick="openReject('${a.id}')">Reject</button>
+            ` : '<span style="font-size:0.78rem;color:var(--muted);">—</span>'}
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      list.innerHTML = emptyState('⚠', 'Could not load appointments', e.message);
+    }
+  }
+
+  async function loadPatients() {
+    const list = document.getElementById('patientList');
+    try {
+      const patients = await API.get('/api/doctor/patients');
+      allPatients = patients || [];
+
+      // Populate recommendation patient select
+      const sel = document.getElementById('recPatient');
+      sel.innerHTML = allPatients.length
+        ? allPatients.map(p => `<option value="${p.id}">${p.name}</option>`).join('')
+        : '<option value="">No patients yet</option>';
+
+      const high = patients ? patients.filter(p => p.riskLevel === 'HIGH' || p.riskLevel === 'MEDIUM')
+        .sort((a, b) => b.burnoutScore - a.burnoutScore).slice(0, 5) : [];
+
+      if (high.length === 0) {
+        list.innerHTML = emptyState('✅', 'No high-risk patients', 'All patients are in good health');
+        return;
+      }
+
+      list.innerHTML = high.map(p => `
+        <div class="patient-item" onclick="window.location='patients.html'">
+          <div class="p-av-lg">${p.initials}</div>
+          <div class="p-info">
+            <div class="p-nm">${p.name}</div>
+            <div class="p-risk-txt">Burnout: ${p.burnoutScore}%</div>
+            <div id="nudge-eng-${p.id}" style="font-size:0.72rem;color:var(--muted);margin-top:2px;">Loading nudge data…</div>
+          </div>
+          <span class="risk-indicator risk-${p.riskLevel}">${p.riskLevel}</span>
+        </div>`).join('');
+
+      // Load nudge engagement for each high-risk patient
+      high.forEach(p => loadPatientNudgeEngagement(p.id));
+    } catch (e) {
+      list.innerHTML = emptyState('⚠', 'Could not load patients');
+    }
+  }
+
+  async function loadPatientNudgeEngagement(patientId) {
+    const el = document.getElementById('nudge-eng-' + patientId);
+    if (!el) return;
+    try {
+      const data = await API.get('/api/nudges/patient-history?userId=' + patientId);
+      const streak = data.streak ?? 0;
+      const total  = data.totalCompleted ?? 0;
+      const streakColor = streak >= 7 ? '#4ade80' : streak >= 3 ? '#fbbf24' : '#f87171';
+      el.innerHTML = `🌿 ${total} nudges · <span style="color:${streakColor};font-weight:600;">🔥 ${streak}-day streak</span>`;
+    } catch(e) {
+      el.textContent = '🌿 No nudge data';
+    }
+  }
+
+  async function acceptAppt(id) {
+    try {
+      await API.post('/api/appointments/accept', { appointmentId: id });
+      await Promise.all([loadAppointments(), loadDashboard()]);
+    } catch (e) { alert('Could not accept: ' + e.message); }
+  }
+
+  function openReject(id) { rejectApptId = id; document.getElementById('rejectModal').classList.add('open'); }
+
+  async function confirmReject() {
+    const reason = document.getElementById('rejectReason').value;
+    const note   = document.getElementById('rejectNote').value;
+    try {
+      await API.post('/api/appointments/reject', { appointmentId: rejectApptId, reason, note });
+      document.getElementById('rejectModal').classList.remove('open');
+      document.getElementById('rejectNote').value = '';
+      await Promise.all([loadAppointments(), loadDashboard()]);
+    } catch (e) { alert('Could not reject: ' + e.message); }
+  }
+
+  function openRecModal() { document.getElementById('recModal').classList.add('open'); }
+
+  async function sendRecommendation() {
+    const userId = document.getElementById('recPatient').value;
+    const text   = document.getElementById('recText').value.trim();
+    if (!text) { alert('Please write a recommendation.'); return; }
+    if (!userId) { alert('No patients available.'); return; }
+    try {
+      await API.post('/api/recommendations', { userId, recommendation: text });
+      document.getElementById('recModal').classList.remove('open');
+      document.getElementById('recText').value = '';
+    } catch (e) { alert('Could not send: ' + e.message); }
+  }
+
+  function cap(s) { return s ? s.charAt(0) + s.slice(1).toLowerCase() : ''; }
+
+  Promise.all([loadDashboard(), loadAppointments(), loadPatients()]);
+</script>
+</body>
+</html>

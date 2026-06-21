@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Peer Support</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;--red:#ef4444;--green:#4ade80;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden;}
+    .layout{display:grid;grid-template-columns:290px 1fr;flex:1;min-height:0;margin-top:60px;}
+
+    /* ── Sidebar ── */
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+    .sidebar-top{padding:16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .sidebar-title{font-size:0.95rem;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+    .create-btn{width:100%;padding:9px;background:linear-gradient(135deg,var(--accent),var(--teal));border:none;border-radius:9px;color:#fff;font-size:0.84rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity 0.2s;display:flex;align-items:center;justify-content:center;gap:6px;}
+    .create-btn:hover{opacity:0.88;}
+    .anon-row{display:flex;align-items:center;gap:8px;margin-top:10px;padding:8px 10px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);}
+    .anon-label{font-size:0.78rem;color:var(--muted);flex:1;}
+    .toggle-switch{position:relative;width:34px;height:18px;cursor:pointer;flex-shrink:0;}
+    .toggle-switch input{opacity:0;width:0;height:0;position:absolute;}
+    .toggle-track{position:absolute;inset:0;background:#2a3347;border-radius:99px;transition:0.2s;}
+    .toggle-thumb{position:absolute;left:2px;top:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:0.2s;pointer-events:none;}
+    .toggle-switch input:checked ~ .toggle-track{background:var(--accent);}
+    .toggle-switch input:checked ~ .toggle-thumb{left:18px;}
+    .tab-row{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0;}
+    .tab{flex:1;padding:6px;border-radius:7px;font-size:0.78rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;border:none;background:transparent;color:var(--muted);transition:all 0.15s;}
+    .tab.active{background:rgba(79,142,247,0.12);color:var(--accent);}
+    .rooms-scroll{flex:1;overflow-y:auto;padding:8px;}
+    .rooms-scroll::-webkit-scrollbar{width:4px;}
+    .rooms-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+    .section-label{font-size:0.68rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;padding:10px 8px 5px;}
+    .room-card{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;margin-bottom:2px;}
+    .room-card:hover{background:var(--surface2);border-color:var(--border);}
+    .room-card.active{background:rgba(79,142,247,0.1);border-color:rgba(79,142,247,0.25);}
+    .room-icon{width:34px;height:34px;border-radius:8px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;border:1px solid var(--border);}
+    .room-info{flex:1;min-width:0;}
+    .room-name{font-size:0.83rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .room-meta{font-size:0.71rem;color:var(--muted);margin-top:1px;}
+    .badge{background:var(--red);color:#fff;font-size:0.62rem;font-weight:700;padding:2px 6px;border-radius:99px;flex-shrink:0;}
+    .badge.green{background:var(--green);color:#0f1117;}
+    .badge.blue{background:var(--accent);}
+    .owner-star{font-size:0.7rem;color:#f59e0b;}
+
+    /* ── Main area ── */
+    .main{display:flex;flex-direction:column;min-height:0;position:relative;}
+    .empty-state{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--muted);text-align:center;padding:40px;}
+    .empty-icon{font-size:2.8rem;}
+    .empty-title{font-size:1rem;font-weight:600;color:var(--text);}
+    .empty-desc{font-size:0.82rem;line-height:1.6;max-width:320px;}
+
+    /* Chat header */
+    .chat-header{padding:14px 20px;border-bottom:1px solid var(--border);background:var(--surface);display:flex;align-items:center;gap:12px;flex-shrink:0;}
+    .chat-icon{width:38px;height:38px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:1.15rem;border:1px solid var(--border);flex-shrink:0;}
+    .chat-title{font-size:0.92rem;font-weight:700;}
+    .chat-desc{font-size:0.74rem;color:var(--muted);}
+    .header-actions{margin-left:auto;display:flex;align-items:center;gap:6px;}
+    .hdr-btn{padding:6px 12px;border-radius:7px;font-size:0.78rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);transition:all 0.15s;}
+    .hdr-btn:hover{color:var(--text);border-color:var(--text);}
+    .hdr-btn.danger:hover{color:var(--red);border-color:var(--red);}
+    .hdr-btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .hdr-btn.primary:hover{opacity:0.85;}
+    .pending-badge{background:var(--red);color:#fff;font-size:0.65rem;font-weight:700;padding:1px 5px;border-radius:99px;margin-left:4px;}
+
+    /* Messages */
+    .messages{flex:1;overflow-y:auto;padding:18px 20px;display:flex;flex-direction:column;gap:10px;scroll-behavior:smooth;}
+    .messages::-webkit-scrollbar{width:4px;}
+    .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+    .msg{display:flex;gap:9px;max-width:70%;animation:fadeUp 0.22s ease;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+    .msg.me{align-self:flex-end;flex-direction:row-reverse;}
+    .msg-av{width:30px;height:30px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.72rem;font-weight:700;color:var(--muted);flex-shrink:0;margin-top:2px;}
+    .msg.me .msg-av{background:rgba(79,142,247,0.15);border-color:rgba(79,142,247,0.3);color:var(--accent);}
+    .msg-body{}
+    .msg-sender{font-size:0.69rem;color:var(--muted);margin-bottom:2px;font-weight:500;}
+    .msg-bubble{padding:9px 13px;border-radius:11px;font-size:0.875rem;line-height:1.55;}
+    .msg .msg-bubble{background:var(--surface);border:1px solid var(--border);border-top-left-radius:3px;}
+    .msg.me .msg-bubble{background:var(--accent);color:#fff;border-top-right-radius:3px;border:none;}
+    .msg-time{font-size:0.68rem;color:var(--muted);margin-top:3px;padding:0 2px;}
+    .msg.me .msg-time{text-align:right;}
+    .sys-msg{text-align:center;font-size:0.74rem;color:var(--muted);padding:6px 0;}
+
+    /* Input */
+    .input-area{padding:12px 20px;border-top:1px solid var(--border);background:var(--surface);flex-shrink:0;}
+    .anon-chip{display:inline-flex;align-items:center;gap:4px;font-size:0.71rem;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:2px 9px;margin-bottom:7px;cursor:pointer;transition:all 0.15s;user-select:none;}
+    .anon-chip.on{color:var(--teal);border-color:rgba(45,212,191,0.35);background:rgba(45,212,191,0.08);}
+    .input-row{display:flex;gap:8px;background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:9px 12px;align-items:flex-end;transition:border-color 0.2s;}
+    .input-row:focus-within{border-color:rgba(79,142,247,0.4);}
+    textarea{flex:1;background:transparent;border:none;resize:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.88rem;line-height:1.5;outline:none;max-height:90px;}
+    textarea::placeholder{color:#4a5568;}
+    .send-btn{width:32px;height:32px;border-radius:7px;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;}
+    .send-btn:hover{background:#3d7ef5;}
+    .send-btn:disabled{opacity:0.4;cursor:not-allowed;}
+
+    /* Not-member banner */
+    .not-member{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:40px;color:var(--muted);}
+    .not-member-title{font-size:1rem;font-weight:600;color:var(--text);}
+    .not-member-desc{font-size:0.82rem;line-height:1.6;max-width:300px;}
+    .request-btn{padding:10px 24px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-size:0.88rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity 0.2s;}
+    .request-btn:hover{opacity:0.85;}
+    .request-btn:disabled{opacity:0.5;cursor:not-allowed;}
+    .pending-notice{padding:8px 16px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;font-size:0.8rem;color:#f59e0b;}
+
+    /* Members panel */
+    .members-panel{position:absolute;right:0;top:0;bottom:0;width:240px;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;z-index:10;transform:translateX(100%);transition:transform 0.25s ease;}
+    .members-panel.open{transform:translateX(0);}
+    .panel-header{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .panel-title{font-size:0.85rem;font-weight:700;}
+    .panel-close{background:none;border:none;color:var(--muted);cursor:pointer;font-size:1.1rem;line-height:1;}
+    .panel-close:hover{color:var(--text);}
+    .members-list{flex:1;overflow-y:auto;padding:8px;}
+    .member-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;}
+    .member-row:hover{background:var(--surface2);}
+    .member-av{width:28px;height:28px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.68rem;font-weight:700;color:var(--muted);flex-shrink:0;}
+    .member-name{font-size:0.82rem;font-weight:500;flex:1;}
+    .kick-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.75rem;padding:2px 6px;border-radius:4px;transition:all 0.15s;}
+    .kick-btn:hover{color:var(--red);background:rgba(239,68,68,0.1);}
+
+    /* Requests panel */
+    .req-list{flex:1;overflow-y:auto;padding:8px;}
+    .req-row{padding:10px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);margin-bottom:6px;}
+    .req-name{font-size:0.82rem;font-weight:600;margin-bottom:6px;}
+    .req-time{font-size:0.7rem;color:var(--muted);margin-bottom:8px;}
+    .req-actions{display:flex;gap:6px;}
+    .approve-btn{flex:1;padding:5px;background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:6px;color:var(--green);font-size:0.76rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;}
+    .approve-btn:hover{background:rgba(74,222,128,0.2);}
+    .reject-btn{flex:1;padding:5px;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:6px;color:var(--red);font-size:0.76rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.15s;}
+    .reject-btn:hover{background:rgba(239,68,68,0.15);}
+
+    /* Create room modal */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.2s;}
+    .modal-overlay.open{opacity:1;pointer-events:all;}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:440px;animation:slideUp 0.25s ease;}
+    @keyframes slideUp{from{transform:translateY(20px);opacity:0;}to{transform:translateY(0);opacity:1;}}
+    .modal-title{font-size:1rem;font-weight:700;margin-bottom:20px;}
+    .field{margin-bottom:14px;}
+    .field label{display:block;font-size:0.77rem;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:0.05em;}
+    .field input,.field textarea,.field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:0.87rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s;}
+    .field input:focus,.field textarea:focus,.field select:focus{border-color:rgba(79,142,247,0.5);}
+    .field select option{background:var(--surface2);}
+    .field textarea{resize:none;height:72px;}
+    .max-members-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .max-opt{padding:10px;border-radius:9px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all 0.15s;}
+    .max-opt:hover{border-color:var(--accent);}
+    .max-opt.selected{border-color:var(--accent);background:rgba(79,142,247,0.08);}
+    .max-opt-icon{font-size:1.3rem;margin-bottom:4px;}
+    .max-opt-label{font-size:0.8rem;font-weight:600;}
+    .max-opt-desc{font-size:0.7rem;color:var(--muted);}
+    .vis-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .vis-opt{padding:10px;border-radius:9px;border:2px solid var(--border);cursor:pointer;text-align:center;transition:all 0.15s;}
+    .vis-opt:hover{border-color:var(--accent);}
+    .vis-opt.selected{border-color:var(--accent);background:rgba(79,142,247,0.08);}
+    .modal-actions{display:flex;gap:8px;margin-top:20px;}
+    .modal-cancel{flex:1;padding:10px;background:transparent;border:1px solid var(--border);border-radius:9px;color:var(--muted);font-size:0.85rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;}
+    .modal-submit{flex:2;padding:10px;background:var(--accent);border:none;border-radius:9px;color:#fff;font-size:0.85rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity 0.2s;}
+    .modal-submit:hover{opacity:0.87;}
+    .full-tag{font-size:0.65rem;background:rgba(239,68,68,0.12);color:var(--red);border:1px solid rgba(239,68,68,0.25);border-radius:99px;padding:1px 6px;}
+  </style>
+</head>
+<body>
+<script>renderNavbar('peer')</script>
+
+<!-- Create Room Modal -->
+<div class="modal-overlay" id="createModal">
+  <div class="modal">
+    <div class="modal-title">✨ Create a Support Room</div>
+
+    <div class="field">
+      <label>Room Name</label>
+      <input id="rName" type="text" placeholder="e.g. Late Night Overthinkers"/>
+    </div>
+    <div class="field">
+      <label>Description</label>
+      <textarea id="rDesc" placeholder="What is this room about?"></textarea>
+    </div>
+    <div class="field">
+      <label>Topic Category</label>
+      <select id="rCategory">
+        <option>Work Stress</option>
+        <option>Sleep Issues</option>
+        <option>Anxiety & Overwhelm</option>
+        <option>General Wellness</option>
+        <option>Motivation & Focus</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Room Size</label>
+      <div class="max-members-row">
+        <div class="max-opt selected" id="opt1on1" onclick="selectMax(2, this)">
+          <div class="max-opt-icon">🤝</div>
+          <div class="max-opt-label">1-on-1</div>
+          <div class="max-opt-desc">Just you + 1 person</div>
+        </div>
+        <div class="max-opt" id="optGroup" onclick="selectMax(0, this)">
+          <div class="max-opt-icon">👥</div>
+          <div class="max-opt-label">Group</div>
+          <div class="max-opt-desc">Unlimited members</div>
+        </div>
+      </div>
+    </div>
+    <div class="field">
+      <label>Visibility</label>
+      <div class="vis-row">
+        <div class="vis-opt selected" id="visPublic" onclick="selectVis('PUBLIC', this)">
+          🌐 Public<br><span style="font-size:0.7rem;color:var(--muted)">Anyone can request</span>
+        </div>
+        <div class="vis-opt" id="visPrivate" onclick="selectVis('PRIVATE', this)">
+          🔒 Private<br><span style="font-size:0.7rem;color:var(--muted)">Only via link</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+      <button class="modal-submit" onclick="createRoom()">Create Room</button>
+    </div>
+  </div>
+</div>
+
+<div class="layout">
+  <!-- ── Sidebar ── -->
+  <div class="sidebar">
+    <div class="sidebar-top">
+      <div class="sidebar-title">👥 Peer Support</div>
+      <button class="create-btn" onclick="openModal()">✨ Create a Room</button>
+      <div class="anon-row">
+        <span class="anon-label">🎭 Stay Anonymous</span>
+        <label class="toggle-switch">
+          <input type="checkbox" id="anonToggle" onchange="toggleAnonymous(this.checked)"/>
+          <div class="toggle-track"></div>
+          <div class="toggle-thumb"></div>
+        </label>
+      </div>
+    </div>
+
+    <div class="tab-row">
+      <button class="tab active" id="tabDiscover" onclick="switchTab('discover')">Discover</button>
+      <button class="tab" id="tabMine" onclick="switchTab('mine')">My Rooms</button>
+    </div>
+
+    <div class="rooms-scroll" id="roomsList">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:0.8rem;">Loading...</div>
+    </div>
+  </div>
+
+  <!-- ── Main ── -->
+  <div class="main" id="mainArea">
+    <div class="empty-state">
+      <div class="empty-icon">💬</div>
+      <div class="empty-title">Select a room to start</div>
+      <div class="empty-desc">Browse public rooms or create your own support space.</div>
+    </div>
+
+    <!-- Members/Requests side panel -->
+    <div class="members-panel" id="membersPanel">
+      <div class="panel-header">
+        <span class="panel-title" id="panelTitle">Members</span>
+        <button class="panel-close" onclick="closePanel()">✕</button>
+      </div>
+      <div id="panelBody" style="flex:1;overflow-y:auto;padding:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const token = () => 'Bearer ' + sessionStorage.getItem('token');
+let currentRoomId   = null;
+let currentRoom     = null;
+let pollInterval    = null;
+let lastMsgTime     = null;
+let anonMode        = false;
+let selectedMax     = 2;
+let selectedVis     = 'PUBLIC';
+let currentTab      = 'discover';
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  if (!sessionStorage.getItem('token')) { location.href = 'login.html'; return; }
+  await loadProfile();
+  await loadRooms();
+});
+
+async function loadProfile() {
+  try {
+    const res = await fetch('/api/profile', { headers: { Authorization: token() } });
+    const p = await res.json();
+    anonMode = p.peerAnonymous === true;
+    document.getElementById('anonToggle').checked = anonMode;
+  } catch(e) {}
+}
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+async function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById('tabDiscover').className = 'tab' + (tab === 'discover' ? ' active' : '');
+  document.getElementById('tabMine').className     = 'tab' + (tab === 'mine'     ? ' active' : '');
+  await loadRooms();
+}
+
+async function loadRooms() {
+  const url = currentTab === 'mine' ? '/api/peer/rooms/mine' : '/api/peer/rooms';
+  const res = await fetch(url, { headers: { Authorization: token() } });
+  const rooms = await res.json();
+  renderRoomList(rooms);
+}
+
+function renderRoomList(rooms) {
+  const el = document.getElementById('roomsList');
+  if (!rooms.length) {
+    el.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);font-size:0.8rem;">${
+      currentTab === 'mine' ? 'You haven\'t joined or created any rooms yet.' : 'No public rooms available.'
+    }</div>`;
+    return;
+  }
+  el.innerHTML = rooms.map(r => {
+    const fullTag   = r.isFull ? '<span class="full-tag">Full</span>' : '';
+const pendBadge = r.pendingCount > 0 ? `<span class="badge">${r.pendingCount}</span>` : '';
+const ownerStar = r.isOwner ? '<span class="owner-star">★</span>' : '';
+const memberTag = r.isMember && !r.isOwner ? '<span class="badge green" style="font-size:0.6rem;">In</span>' : '';
+const privTag   = r.visibility === 'PRIVATE' ? '<span style="font-size:0.7rem;color:var(--muted);">🔒</span>' : '';
+return `
+  <div class="room-card ${currentRoomId === r.id ? 'active' : ''}" onclick="openRoom('${r.id}')">
+    <div class="room-icon">${r.icon}</div>
+    <div class="room-info">
+      <div class="room-name">${ownerStar} ${r.topic} ${privTag}</div>
+      <div class="room-meta">${r.memberCount}${r.maxMembers === 2 ? '/2' : ''} members · ${r.category}</div>
+    </div>
+    ${fullTag}${memberTag}${pendBadge}
+  </div>`;
+  }).join('');
+}
+
+// ── Open Room ─────────────────────────────────────────────────────────────────
+async function openRoom(roomId) {
+  if (pollInterval) clearInterval(pollInterval);
+  closePanel();
+  currentRoomId = roomId;
+  lastMsgTime   = null;
+
+  const res  = await fetch(`/api/peer/rooms/${roomId}`, { headers: { Authorization: token() } });
+  currentRoom = await res.json();
+
+  renderHeader();
+  await loadRooms(); // refresh sidebar
+
+  if (!currentRoom.isMember) {
+    renderNotMember();
+    return;
+  }
+
+  renderChatArea();
+  await loadMessages();
+  pollInterval = setInterval(pollMessages, 3000);
+}
+
+function renderHeader() {
+  const r = currentRoom;
+  const membersBtn = r.isMember
+    ? `<button class="hdr-btn" onclick="showMembers()">👥 Members (${r.memberCount})</button>` : '';
+  const reqBtn = r.isOwner && r.pendingCount > 0
+    ? `<button class="hdr-btn primary" onclick="showRequests()">Requests<span class="pending-badge">${r.pendingCount}</span></button>` : '';
+  const leaveBtn = r.isMember && !r.isOwner
+    ? `<button class="hdr-btn danger" onclick="leaveRoom()">Leave</button>` : '';
+  const delBtn = r.isOwner
+    ? `<button class="hdr-btn danger" onclick="deleteRoom()">Delete Room</button>` : '';
+  const sizeLabel = r.maxMembers === 2 ? '1-on-1' : 'Group';
+  const visLabel  = r.visibility === 'PUBLIC' ? '🌐' : '🔒';
+
+  const main = document.getElementById('mainArea');
+  // preserve members panel
+  const panel = document.getElementById('membersPanel');
+  main.innerHTML = `
+    <div class="chat-header">
+      <div class="chat-icon">${r.icon}</div>
+      <div>
+        <div class="chat-title">${r.topic}</div>
+        <div class="chat-desc">${visLabel} ${sizeLabel} · ${r.category} · by ${r.ownerName}</div>
+      </div>
+      <div class="header-actions">
+        ${reqBtn}${membersBtn}${leaveBtn}${delBtn}
+      </div>
+    </div>
+    <div class="messages" id="messagesArea"></div>
+    ${r.isMember ? renderInputHTML() : ''}
+  `;
+  main.appendChild(panel);
+}
+
+function renderInputHTML() {
+  return `<div class="input-area">
+    <div class="anon-chip ${anonMode ? 'on' : ''}" id="anonChip" onclick="toggleAnonChip()">
+      🎭 ${anonMode ? 'Posting anonymously' : 'Post as yourself'}
+    </div>
+    <div class="input-row">
+      <textarea id="msgInput" rows="1" placeholder="Share something..." onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" onclick="sendMessage()">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+function renderNotMember() {
+  const r = currentRoom;
+  const main = document.getElementById('mainArea');
+  const panel = document.getElementById('membersPanel');
+  let actionHtml;
+  if (r.isFull) {
+    actionHtml = `<div class="pending-notice">This room is full (${r.memberCount}/${r.maxMembers})</div>`;
+  } else if (r.visibility === 'PUBLIC') {
+    actionHtml = `<button class="request-btn" onclick="joinDirectly()">Join Room</button>`;
+  } else if (r.hasPending) {
+    actionHtml = `<div class="pending-notice">⏳ Your join request is pending approval from the owner.</div>`;
+  } else {
+    actionHtml = `<button class="request-btn" onclick="requestJoin()">🔒 Request to Join</button>`;
+  }
+  main.innerHTML = `
+    <div class="chat-header">
+      <div class="chat-icon">${r.icon}</div>
+      <div>
+        <div class="chat-title">${r.topic}</div>
+        <div class="chat-desc">${r.visibility === 'PUBLIC' ? '🌐 Public' : '🔒 Private'} · ${r.maxMembers === 2 ? '1-on-1' : 'Group'} · ${r.category}</div>
+      </div>
+    </div>
+    <div class="not-member">
+      <div style="font-size:2.5rem;">${r.icon}</div>
+      <div class="not-member-title">${r.topic}</div>
+      <div class="not-member-desc">${r.description}</div>
+      <div style="font-size:0.8rem;color:var(--muted);">Owner: ${r.ownerName} · ${r.memberCount} member${r.memberCount !== 1 ? 's' : ''}</div>
+      ${actionHtml}
+    </div>
+  `;
+  main.appendChild(panel);
+}
+
+function renderChatArea() {
+  const main = document.getElementById('mainArea');
+  const panel = document.getElementById('membersPanel');
+  renderHeader();
+  main.appendChild(panel);
+}
+
+// ── Messages ──────────────────────────────────────────────────────────────────
+async function loadMessages() {
+  const area = document.getElementById('messagesArea');
+  if (!area) return;
+  area.innerHTML = '<div class="sys-msg">Loading messages...</div>';
+  const res  = await fetch(`/api/peer/rooms/${currentRoomId}/messages`, { headers: { Authorization: token() } });
+  const msgs = await res.json();
+  area.innerHTML = '';
+  if (!msgs.length) {
+    area.innerHTML = '<div class="sys-msg">No messages yet. Say hello! 👋</div>';
+    return;
+  }
+  msgs.forEach(m => appendMsg(m, false));
+  if (msgs.length) lastMsgTime = msgs[msgs.length - 1].sentAt;
+  area.scrollTop = area.scrollHeight;
+}
+
+async function pollMessages() {
+  if (!currentRoomId || !currentRoom?.isMember) return;
+  const url = lastMsgTime
+    ? `/api/peer/rooms/${currentRoomId}/messages?after=${encodeURIComponent(lastMsgTime)}`
+    : `/api/peer/rooms/${currentRoomId}/messages`;
+  const res  = await fetch(url, { headers: { Authorization: token() } });
+  const msgs = await res.json();
+  if (!msgs.length) return;
+  const area     = document.getElementById('messagesArea');
+  const atBottom = area && (area.scrollHeight - area.scrollTop - area.clientHeight < 60);
+  const noMsgDiv = area && area.querySelector('.sys-msg');
+  if (noMsgDiv) noMsgDiv.remove();
+  msgs.forEach(m => appendMsg(m, true));
+  lastMsgTime = msgs[msgs.length - 1].sentAt;
+  if (atBottom && area) area.scrollTop = area.scrollHeight;
+}
+
+function appendMsg(m, animate) {
+  const area = document.getElementById('messagesArea');
+  if (!area) return;
+  const cls  = m.isMe ? 'me' : '';
+  const time = new Date(m.sentAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const senderLine = m.isMe ? '' : `<div class="msg-sender">${m.senderName}</div>`;
+  area.insertAdjacentHTML('beforeend', `
+    <div class="msg ${cls}" style="${animate ? '' : 'animation:none'}">
+      <div class="msg-av">${m.senderInitials || '?'}</div>
+      <div class="msg-body">
+        ${senderLine}
+        <div class="msg-bubble">${esc(m.content)}</div>
+        <div class="msg-time">${time}</div>
+      </div>
+    </div>
+  `);
+}
+
+async function sendMessage() {
+  const inp = document.getElementById('msgInput');
+  if (!inp || !inp.value.trim()) return;
+  const content = inp.value.trim();
+  inp.value = ''; autoResize(inp);
+  await fetch(`/api/peer/rooms/${currentRoomId}/message`, {
+    method: 'POST',
+    headers: { Authorization: token(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ content, anonymous: anonMode })
+  });
+  await pollMessages();
+  const area = document.getElementById('messagesArea');
+  if (area) area.scrollTop = area.scrollHeight;
+}
+
+// ── Join Directly (public rooms) ─────────────────────────────────────────────
+async function joinDirectly() {
+  const res  = await fetch(`/api/peer/rooms/${currentRoomId}/join`, {
+    method: 'POST', headers: { Authorization: token() }
+  });
+  const data = await res.json();
+  if (res.ok) {
+    await openRoom(currentRoomId);
+  } else {
+    alert(data.message);
+  }
+}
+
+// ── Join Request ──────────────────────────────────────────────────────────────
+async function requestJoin() {
+  const res  = await fetch(`/api/peer/rooms/${currentRoomId}/request`, {
+    method: 'POST', headers: { Authorization: token() }
+  });
+  const data = await res.json();
+  alert(data.message);
+  await openRoom(currentRoomId);
+}
+
+// ── Approve / Reject ──────────────────────────────────────────────────────────
+async function approveRequest(requesterId) {
+  await fetch(`/api/peer/rooms/${currentRoomId}/approve/${requesterId}`, {
+    method: 'POST', headers: { Authorization: token() }
+  });
+  await showRequests();
+  await loadRooms();
+  // refresh room info
+  const res = await fetch(`/api/peer/rooms/${currentRoomId}`, { headers: { Authorization: token() } });
+  currentRoom = await res.json();
+  renderHeader();
+  document.getElementById('mainArea').appendChild(document.getElementById('membersPanel'));
+}
+
+async function rejectRequest(requesterId) {
+  await fetch(`/api/peer/rooms/${currentRoomId}/reject/${requesterId}`, {
+    method: 'POST', headers: { Authorization: token() }
+  });
+  await showRequests();
+}
+
+// ── Kick ──────────────────────────────────────────────────────────────────────
+async function kickMember(memberId, name) {
+  if (!confirm(`Remove ${name} from this room?`)) return;
+  await fetch(`/api/peer/rooms/${currentRoomId}/kick/${memberId}`, {
+    method: 'DELETE', headers: { Authorization: token() }
+  });
+  await showMembers();
+}
+
+// ── Leave / Delete ────────────────────────────────────────────────────────────
+async function leaveRoom() {
+  if (!confirm('Leave this room?')) return;
+  await fetch(`/api/peer/rooms/${currentRoomId}/leave`, {
+    method: 'POST', headers: { Authorization: token() }
+  });
+  currentRoomId = null; currentRoom = null;
+  if (pollInterval) clearInterval(pollInterval);
+  await loadRooms();
+  document.getElementById('mainArea').innerHTML = `
+    <div class="empty-state"><div class="empty-icon">💬</div>
+    <div class="empty-title">Select a room to start</div>
+    <div class="empty-desc">Browse public rooms or create your own support space.</div></div>
+    `;
+  document.getElementById('mainArea').appendChild(document.getElementById('membersPanel'));
+}
+
+async function deleteRoom() {
+  if (!confirm('Delete this room permanently?')) return;
+  await fetch(`/api/peer/rooms/${currentRoomId}`, {
+    method: 'DELETE', headers: { Authorization: token() }
+  });
+  currentRoomId = null; currentRoom = null;
+  if (pollInterval) clearInterval(pollInterval);
+  await loadRooms();
+  document.getElementById('mainArea').innerHTML = `
+    <div class="empty-state"><div class="empty-icon">💬</div>
+    <div class="empty-title">Room deleted</div></div>`;
+  document.getElementById('mainArea').appendChild(document.getElementById('membersPanel'));
+}
+
+// ── Members Panel ─────────────────────────────────────────────────────────────
+async function showMembers() {
+  const res     = await fetch(`/api/peer/rooms/${currentRoomId}/members`, { headers: { Authorization: token() } });
+  const members = await res.json();
+  document.getElementById('panelTitle').textContent = `Members (${members.length})`;
+  document.getElementById('panelBody').innerHTML = members.map(m => `
+    <div class="member-row">
+      <div class="member-av">${getInitials(m.name)}</div>
+      <div class="member-name">${m.name} ${m.isOwner ? '★' : ''}</div>
+      ${currentRoom?.isOwner && !m.isOwner
+        ? `<button class="kick-btn" onclick="kickMember('${m.id}','${m.name}')">Remove</button>` : ''}
+    </div>
+  `).join('');
+  document.getElementById('membersPanel').classList.add('open');
+}
+
+async function showRequests() {
+  const res  = await fetch(`/api/peer/rooms/${currentRoomId}/requests`, { headers: { Authorization: token() } });
+  const reqs = await res.json();
+  document.getElementById('panelTitle').textContent = `Join Requests (${reqs.length})`;
+  document.getElementById('panelBody').innerHTML = reqs.length
+    ? reqs.map(r => `
+      <div class="req-row">
+        <div class="req-name">${r.requesterName}</div>
+        <div class="req-time">${new Date(r.requestedAt).toLocaleString()}</div>
+        <div class="req-actions">
+          <button class="approve-btn" onclick="approveRequest('${r.requesterId}')">✓ Approve</button>
+          <button class="reject-btn"  onclick="rejectRequest('${r.requesterId}')">✕ Reject</button>
+        </div>
+      </div>`).join('')
+    : '<div style="padding:16px;text-align:center;color:var(--muted);font-size:0.8rem;">No pending requests</div>';
+  document.getElementById('membersPanel').classList.add('open');
+}
+
+function closePanel() { document.getElementById('membersPanel').classList.remove('open'); }
+
+// ── Create Room Modal ─────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('createModal').classList.add('open'); }
+function closeModal() { document.getElementById('createModal').classList.remove('open'); }
+
+function selectMax(val, el) {
+  selectedMax = val;
+  document.querySelectorAll('.max-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+function selectVis(val, el) {
+  selectedVis = val;
+  document.querySelectorAll('.vis-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+async function createRoom() {
+  const name = document.getElementById('rName').value.trim();
+  const desc = document.getElementById('rDesc').value.trim();
+  const cat  = document.getElementById('rCategory').value;
+  if (!name) { alert('Please enter a room name'); return; }
+  const res  = await fetch('/api/peer/rooms/create', {
+    method: 'POST',
+    headers: { Authorization: token(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description: desc, category: cat, visibility: selectedVis, maxMembers: selectedMax })
+  });
+  const data = await res.json();
+  closeModal();
+  // reset form
+  document.getElementById('rName').value = '';
+  document.getElementById('rDesc').value = '';
+  await switchTab('mine');
+  await openRoom(data.roomId);
+}
+
+// ── Anonymity ─────────────────────────────────────────────────────────────────
+async function toggleAnonymous(val) {
+  anonMode = val;
+  await fetch('/api/peer/anonymous', {
+    method: 'PUT',
+    headers: { Authorization: token(), 'Content-Type': 'application/json' },
+    body: JSON.stringify({ anonymous: val })
+  });
+  const chip = document.getElementById('anonChip');
+  if (chip) {
+    chip.className = `anon-chip ${anonMode ? 'on' : ''}`;
+    chip.textContent = `🎭 ${anonMode ? 'Posting anonymously' : 'Post as yourself'}`;
+  }
+}
+function toggleAnonChip() {
+  anonMode = !anonMode;
+  document.getElementById('anonToggle').checked = anonMode;
+  toggleAnonymous(anonMode);
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 90) + 'px'; }
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>'); }
+function getInitials(name) {
+  if (!name) return '?';
+  return name.trim().split(/\s+/).map(p => p[0]).join('').substring(0,2).toUpperCase();
+}
+</script>
+</body>
+</html>

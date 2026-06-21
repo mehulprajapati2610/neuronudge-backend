@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Insights</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1100px;margin:0 auto;padding:32px 24px;}
+    .page-title{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;margin-bottom:4px;}
+    .page-sub{color:var(--muted);font-size:0.9rem;margin-bottom:28px;}
+    .tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:4px;width:fit-content;margin-bottom:24px;}
+    .tab{padding:7px 16px;border-radius:7px;font-size:0.85rem;font-weight:500;cursor:pointer;color:var(--muted);transition:all 0.15s;}
+    .tab.active{background:var(--surface2);color:var(--text);}
+    .tab:hover:not(.active){color:var(--text);}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+    .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+    .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .chart-title{font-size:0.95rem;font-weight:600;}
+    .chart-sub{font-size:0.8rem;color:var(--muted);}
+    .insight-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+    .insight-header{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+    .insight-icon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+    .insight-label{font-size:0.85rem;font-weight:600;}
+    .insight-value{font-size:1.8rem;font-weight:700;letter-spacing:-0.03em;}
+    .insight-context{font-size:0.8rem;color:var(--muted);margin-top:4px;}
+    .progress-bar{height:5px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:10px;}
+    .progress-fill{height:100%;border-radius:99px;transition:width 1s ease;}
+    .rec-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+    .rec-item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(42,51,71,0.5);}
+    .rec-item:last-child{border-bottom:none;}
+    .rec-dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex-shrink:0;}
+    .rec-text{font-size:0.875rem;line-height:1.6;}
+    .rec-source{font-size:0.75rem;color:var(--muted);margin-top:3px;}
+    .heatmap-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px;}
+    .heatmap-cell{aspect-ratio:1;border-radius:4px;cursor:pointer;transition:transform 0.15s;}
+    .heatmap-cell:hover{transform:scale(1.2);}
+    .heatmap-label{font-size:0.7rem;color:var(--muted);text-align:center;margin-bottom:4px;}
+    .heatmap-days{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  </style>
+</head>
+<body>
+<script>requireAuth(); renderNavbar('insights');</script>
+<div class="page">
+  <div class="page-title">Insights</div>
+  <div class="page-sub">Understand your wellness patterns over time</div>
+
+  <div class="tabs">
+    <div class="tab active" data-days="7" onclick="switchTab(this)">This Week</div>
+    <div class="tab" data-days="30" onclick="switchTab(this)">This Month</div>
+    <div class="tab" data-days="90" onclick="switchTab(this)">3 Months</div>
+  </div>
+
+  <div class="grid3" style="margin-bottom:20px;">
+    <div class="insight-card">
+      <div class="insight-header"><div class="insight-icon" style="background:rgba(79,142,247,0.12);">😊</div><div class="insight-label">Avg Mood</div></div>
+      <div class="insight-value" id="avgMood">—<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span></div>
+      <div class="insight-context" id="avgMoodCtx">Loading…</div>
+      <div class="progress-bar"><div class="progress-fill" id="avgMoodBar" style="width:0%;background:#4f8ef7;"></div></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-header"><div class="insight-icon" style="background:rgba(192,132,252,0.12);">🧠</div><div class="insight-label">Avg Stress</div></div>
+      <div class="insight-value" id="avgStress">—<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span></div>
+      <div class="insight-context" id="avgStressCtx">Loading…</div>
+      <div class="progress-bar"><div class="progress-fill" id="avgStressBar" style="width:0%;background:#c084fc;"></div></div>
+    </div>
+    <div class="insight-card">
+      <div class="insight-header"><div class="insight-icon" style="background:rgba(45,212,191,0.12);">😴</div><div class="insight-label">Avg Sleep</div></div>
+      <div class="insight-value" id="avgSleep">—<span style="font-size:1rem;color:var(--muted);font-weight:400;">h</span></div>
+      <div class="insight-context" id="avgSleepCtx">Loading…</div>
+      <div class="progress-bar"><div class="progress-fill" id="avgSleepBar" style="width:0%;background:#2dd4bf;"></div></div>
+    </div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Mood Over Time</div><div class="chart-sub">Daily mood scores</div></div></div><div id="moodChartWrap"><canvas id="moodChart" height="140"></canvas></div></div>
+    <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Stress Over Time</div><div class="chart-sub">Daily stress scores</div></div></div><div id="stressChartWrap"><canvas id="stressChart" height="140"></canvas></div></div>
+  </div>
+
+  <div class="grid2" style="margin-bottom:16px;">
+    <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Sleep Patterns</div><div class="chart-sub">Hours per night</div></div></div><div id="sleepChartWrap"><canvas id="sleepChart" height="130"></canvas></div></div>
+    <div class="chart-card"><div class="chart-header"><div><div class="chart-title">Burnout Risk Trend</div><div class="chart-sub">Daily burnout score</div></div></div><div id="burnoutChartWrap"><canvas id="burnoutChart" height="130"></canvas></div></div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-header"><div class="chart-title">Mood Calendar</div><div class="chart-sub" id="heatmapSub">Last 28 days</div></div>
+    <div class="heatmap-days" id="heatmapDays" style="margin-bottom:6px;"></div>
+    <div class="heatmap-grid" id="heatmap"></div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:12px;font-size:0.75rem;color:var(--muted);">
+      <span>Low</span>
+      <div style="width:14px;height:14px;border-radius:3px;background:#1e2535;border:1px solid #2a3347;"></div>
+      <div style="width:14px;height:14px;border-radius:3px;background:rgba(79,142,247,0.2);"></div>
+      <div style="width:14px;height:14px;border-radius:3px;background:rgba(79,142,247,0.5);"></div>
+      <div style="width:14px;height:14px;border-radius:3px;background:#4f8ef7;"></div>
+      <span>High</span>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:16px;">
+    <div class="chart-header">
+      <div>
+        <div class="chart-title">Nudge Completions</div>
+        <div class="chart-sub">Daily completions — last 30 days</div>
+      </div>
+    </div>
+    <div id="nudgeChartWrap"><canvas id="nudgeChart" height="110"></canvas></div>
+    <div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;" id="nudgeTypeBreakdown"></div>
+  </div>
+
+  <div class="rec-card">
+    <div class="chart-title" style="margin-bottom:14px;">Doctor Recommendations</div>
+    <div id="recommendations"></div>
+  </div>
+</div>
+
+<script>
+  requireAuth();
+  let currentDays = 7;
+  const charts = {};
+  const defaults = {
+    responsive:true, maintainAspectRatio:true,
+    plugins:{ legend:{display:false} },
+    scales:{
+      x:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:11}} },
+      y:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:11}}, min:0 }
+    }
+  };
+
+  function switchTab(el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    currentDays = +el.dataset.days;
+    loadAll();
+  }
+
+  async function loadAll() {
+    await Promise.all([loadCharts(), loadRecommendations(), loadNudgeChart()]);
+  }
+
+  async function loadCharts() {
+    try {
+      const logs = await API.get(`/api/checkin/range?days=${currentDays}`);
+
+      if (!logs || logs.length === 0) {
+        ['moodChartWrap','stressChartWrap','sleepChartWrap','burnoutChartWrap'].forEach(id =>
+          document.getElementById(id).innerHTML = emptyState('📊', 'No data yet', 'Complete daily check-ins to see your trends'));
+        document.getElementById('heatmap').innerHTML = emptyState('🗓', 'No data yet');
+        document.getElementById('avgMood').innerHTML = '—<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span>';
+        document.getElementById('avgStress').innerHTML = '—<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span>';
+        document.getElementById('avgSleep').innerHTML = '—<span style="font-size:1rem;color:var(--muted);font-weight:400;">h</span>';
+        ['avgMoodCtx','avgStressCtx','avgSleepCtx'].forEach(id => document.getElementById(id).textContent = 'Log check-ins to see data');
+        return;
+      }
+
+      const labels      = logs.map(l => { const d = new Date(l.date); return d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); });
+      const moodData    = logs.map(l => l.mood);
+      const stressData  = logs.map(l => l.stress);
+      const sleepData   = logs.map(l => l.sleepHours);
+      const burnoutData = logs.map(l => l.burnout);
+
+      // Summary cards
+      const am = (moodData.reduce((a,b)=>a+b,0)/moodData.length).toFixed(1);
+      const as_ = (stressData.reduce((a,b)=>a+b,0)/stressData.length).toFixed(1);
+      const asl = (sleepData.reduce((a,b)=>a+b,0)/sleepData.length).toFixed(1);
+
+      document.getElementById('avgMood').innerHTML = `${am}<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span>`;
+      document.getElementById('avgMoodBar').style.width = (am*10)+'%';
+      document.getElementById('avgMoodCtx').textContent = am >= 7 ? 'Above average' : am >= 4 ? 'Moderate' : 'Below average';
+
+      document.getElementById('avgStress').innerHTML = `${as_}<span style="font-size:1rem;color:var(--muted);font-weight:400;">/10</span>`;
+      document.getElementById('avgStressBar').style.width = (as_*10)+'%';
+      document.getElementById('avgStressCtx').textContent = as_ >= 7 ? 'High — monitor closely' : as_ >= 4 ? 'Moderate levels' : 'Low stress';
+
+      document.getElementById('avgSleep').innerHTML = `${asl}<span style="font-size:1rem;color:var(--muted);font-weight:400;">h</span>`;
+      document.getElementById('avgSleepBar').style.width = (asl/12*100)+'%';
+      document.getElementById('avgSleepCtx').textContent = asl >= 8 ? 'Optimal sleep' : asl >= 7 ? 'Near target' : 'Below 8h target';
+
+      // Rebuild charts
+      const makeChart = (id, wrapId, type, data, color, bgColor, yMax) => {
+        if (charts[id]) charts[id].destroy();
+        const wrap = document.getElementById(wrapId);
+        wrap.innerHTML = `<canvas id="${id}" height="${type==='bar'?'130':'140'}"></canvas>`;
+        charts[id] = new Chart(document.getElementById(id).getContext('2d'), {
+          type,
+          data: { labels, datasets: [{ data, borderColor: color, backgroundColor: bgColor,
+            fill: type==='line', tension: 0.4, pointRadius: type==='line'?3:0,
+            pointBackgroundColor: color, borderWidth: 2, borderRadius: type==='bar'?6:0, borderSkipped: false }] },
+          options: { ...defaults, scales: { ...defaults.scales, y: { ...defaults.scales.y, max: yMax }},
+            plugins: { legend: { display:false }}}
+        });
+      };
+
+      makeChart('moodChart',    'moodChartWrap',    'line', moodData,    '#4f8ef7', 'rgba(79,142,247,0.08)',   10);
+      makeChart('stressChart',  'stressChartWrap',  'line', stressData,  '#c084fc', 'rgba(192,132,252,0.06)', 10);
+      makeChart('sleepChart',   'sleepChartWrap',   'bar',  sleepData,   '#2dd4bf', 'rgba(45,212,191,0.6)',   12);
+      makeChart('burnoutChart', 'burnoutChartWrap', 'line', burnoutData, '#f97316', 'rgba(249,115,22,0.08)',  100);
+
+      // Heatmap (last 28 days always)
+      buildHeatmap(logs);
+
+    } catch (e) {
+      console.error('Insights load error:', e);
+      ['moodChartWrap','stressChartWrap','sleepChartWrap','burnoutChartWrap'].forEach(id =>
+        document.getElementById(id).innerHTML = emptyState('⚠', 'Could not load data'));
+    }
+  }
+
+  function buildHeatmap(logs) {
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    const daysRow = document.getElementById('heatmapDays');
+    daysRow.innerHTML = '';
+    dayNames.forEach(d => { const el = document.createElement('div'); el.className='heatmap-label'; el.textContent=d; daysRow.appendChild(el); });
+
+    // Build a date → mood map from logs
+    const moodByDate = {};
+    logs.forEach(l => { moodByDate[l.date] = l.mood; });
+
+    const heatmap = document.getElementById('heatmap');
+    heatmap.innerHTML = '';
+    const today = new Date();
+    for (let i = 27; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const key = d.toISOString().split('T')[0];
+      const val = moodByDate[key];
+      const el = document.createElement('div');
+      el.className = 'heatmap-cell';
+      if (val === undefined) {
+        el.style.background = 'rgba(42,51,71,0.3)';
+        el.title = `${key}: No data`;
+      } else {
+        el.style.background = `rgba(79,142,247,${val/10})`;
+        el.title = `${key}: Mood ${val}/10`;
+      }
+      heatmap.appendChild(el);
+    }
+  }
+
+  async function loadRecommendations() {
+    const container = document.getElementById('recommendations');
+    try {
+      const recs = await API.get('/api/recommendations/my');
+      if (!recs || recs.length === 0) {
+        container.innerHTML = emptyState('💡', 'No recommendations yet', 'Your doctor will send personalised recommendations here');
+        return;
+      }
+      const colors = ['#4f8ef7','#2dd4bf','#c084fc','#f97316','#4ade80'];
+      container.innerHTML = recs.map((r, i) => `
+        <div class="rec-item">
+          <div class="rec-dot" style="background:${colors[i % colors.length]};"></div>
+          <div>
+            <div class="rec-text">${r.message}</div>
+            <div class="rec-source">From your doctor · ${relativeTime(r.createdAt)}</div>
+          </div>
+        </div>`).join('');
+    } catch (e) {
+      container.innerHTML = emptyState('⚠', 'Could not load recommendations');
+    }
+  }
+
+  async function loadNudgeChart() {
+    try {
+      const data = await API.get('/api/nudges/analytics');
+      const dailyCounts = data.dailyCounts || {};
+      const labels = Object.keys(dailyCounts).map(d => {
+        const dt = new Date(d);
+        return dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      });
+      const values = Object.values(dailyCounts);
+
+      if (charts.nudge) charts.nudge.destroy();
+      const wrap = document.getElementById('nudgeChartWrap');
+      wrap.innerHTML = '<canvas id="nudgeChart" height="110"></canvas>';
+      charts.nudge = new Chart(document.getElementById('nudgeChart').getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: values, backgroundColor: 'rgba(45,212,191,0.55)',
+          borderColor: '#2dd4bf', borderWidth: 1, borderRadius: 5, borderSkipped: false }] },
+        options: { ...defaults, scales: {
+          ...defaults.scales,
+          y: { ...defaults.scales.y, beginAtZero: true, stepSize: 1, max: Math.max(3, ...values) + 1 }
+        }, plugins: { legend: { display: false } } }
+      });
+
+      const typeColors = { BREATHE:'#4f8ef7', MEDITATE:'#c084fc', WALK:'#4ade80', HYDRATE:'#38bdf8',
+        STRETCH:'#fbbf24', GRATITUDE:'#f97316', SOUNDSCAPE:'#2dd4bf', EYE_REST:'#fb923c', JOURNALING:'#a78bfa' };
+      const sorted = Object.entries(data.byType || {}).sort((a, b) => b[1] - a[1]);
+      document.getElementById('nudgeTypeBreakdown').innerHTML = sorted.length
+        ? sorted.map(([type, count]) =>
+          `<div style="background:rgba(42,51,71,0.7);border:1px solid var(--border);border-radius:8px;padding:6px 12px;font-size:0.78rem;display:flex;align-items:center;gap:7px;">
+             <span style="width:8px;height:8px;border-radius:50%;background:${typeColors[type]||'#8899b4'};flex-shrink:0;display:inline-block;"></span>
+             <span style="color:${typeColors[type]||'#8899b4'};font-weight:600;">${type}</span>
+             <span style="color:var(--muted);">${count}x</span>
+           </div>`).join('')
+        : '<div style="color:var(--muted);font-size:0.82rem;">Complete nudges to see your type breakdown</div>';
+    } catch(e) {
+      const wrap = document.getElementById('nudgeChartWrap');
+      if (wrap) wrap.innerHTML = emptyState('🌿', 'No nudge data yet', 'Complete nudges to see your history');
+    }
+  }
+
+  loadAll();
+</script>
+</body>
+</html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Manage Appointments</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+
+    /* ── Table ── */
+    .appt-table { width:100%; border-collapse:collapse; table-layout:fixed; }
+    .appt-table thead tr { border-bottom:1px solid var(--border); }
+    .appt-table thead th {
+      padding:12px 16px;
+      font-size:0.72rem;
+      font-weight:600;
+      color:var(--muted);
+      text-transform:uppercase;
+      letter-spacing:0.07em;
+      text-align:left;
+      background:var(--surface);
+    }
+    .appt-table tbody tr { border-bottom:1px solid rgba(42,51,71,0.5); transition:background 0.15s; }
+    .appt-table tbody tr:last-child { border-bottom:none; }
+    .appt-table tbody tr:hover { background:rgba(42,51,71,0.35); }
+    .appt-table td { padding:14px 16px; vertical-align:middle; }
+
+    .col-patient  { width:34%; }
+    .col-date     { width:15%; }
+    .col-time     { width:11%; }
+    .col-status   { width:14%; }
+    .col-actions  { width:26%; }
+
+    .patient-cell { display:flex; align-items:center; gap:10px; }
+    .avatar { width:34px; height:34px; border-radius:9px; background:var(--surface2); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:0.72rem; font-weight:700; color:var(--muted); flex-shrink:0; }
+    .p-name   { font-size:0.875rem; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .p-reason { font-size:0.775rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .p-text   { min-width:0; overflow:hidden; }
+
+    .badge { display:inline-block; font-size:0.72rem; padding:3px 10px; border-radius:99px; font-weight:500; white-space:nowrap; }
+    .badge-PENDING     { background:rgba(234,179,8,0.12);  color:#fbbf24; border:1px solid rgba(234,179,8,0.25); }
+    .badge-ACCEPTED    { background:rgba(74,222,128,0.12); color:#4ade80; border:1px solid rgba(74,222,128,0.25); }
+    .badge-REJECTED    { background:rgba(239,68,68,0.1);   color:#f87171; border:1px solid rgba(239,68,68,0.25); }
+    .badge-COMPLETED   { background:rgba(100,116,139,0.2); color:#94a3b8; border:1px solid rgba(100,116,139,0.25); }
+    .badge-CANCELLED   { background:rgba(251,146,60,0.1);  color:#fb923c; border:1px solid rgba(251,146,60,0.25); }
+    .badge-RESCHEDULED { background:rgba(139,92,246,0.12); color:#a78bfa; border:1px solid rgba(139,92,246,0.25); }
+
+    .actions-cell { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .btn-accept   { background:rgba(74,222,128,0.1);  border:1px solid rgba(74,222,128,0.25); color:#4ade80; border-radius:7px; padding:5px 12px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+    .btn-accept:hover   { background:rgba(74,222,128,0.22); }
+    .btn-reject   { background:rgba(239,68,68,0.08);  border:1px solid rgba(239,68,68,0.25);  color:#f87171; border-radius:7px; padding:5px 12px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+    .btn-reject:hover   { background:rgba(239,68,68,0.18); }
+    .btn-complete { background:rgba(79,142,247,0.1);  border:1px solid rgba(79,142,247,0.25); color:#4f8ef7; border-radius:7px; padding:5px 12px; font-size:0.78rem; cursor:pointer; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+    .btn-complete:hover { background:rgba(79,142,247,0.2); }
+    .btn-join     { display:inline-flex; align-items:center; gap:5px; background:linear-gradient(135deg,#4f8ef7,#2dd4bf); color:#fff; border:none; border-radius:7px; padding:5px 12px; font-size:0.78rem; font-weight:600; cursor:pointer; text-decoration:none; font-family:'DM Sans',sans-serif; white-space:nowrap; }
+    .btn-join:hover { opacity:0.85; }
+
+    .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+    .table-scroll { overflow-x:auto; width:100%; }
+
+    .filter-btn { background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:7px 14px; font-size:0.82rem; font-weight:500; cursor:pointer; color:var(--muted); transition:all 0.15s; font-family:'DM Sans',sans-serif; }
+    .filter-btn.active { background:rgba(79,142,247,0.12); border-color:rgba(79,142,247,0.35); color:var(--text); }
+    .filter-btn:hover:not(.active) { color:var(--text); }
+
+    .mini-label { font-size:0.78rem; color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+    .mini-value { font-size:1.6rem; font-weight:700; letter-spacing:-0.03em; }
+
+    .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.6); display:none; align-items:center; justify-content:center; z-index:1000; backdrop-filter:blur(4px); }
+    .modal-overlay.open { display:flex; }
+    .modal { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:28px; width:100%; max-width:400px; animation:mIn 0.2s ease; }
+    @keyframes mIn { from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);} }
+    select,textarea { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:9px 12px; font-size:0.875rem; color:var(--text); font-family:'DM Sans',sans-serif; outline:none; margin-bottom:12px; }
+    select option { background:var(--surface2); }
+    .btn-primary { background:var(--accent); color:#fff; border:none; border-radius:9px; padding:10px 18px; font-size:0.875rem; font-weight:600; font-family:'DM Sans',sans-serif; cursor:pointer; }
+    .btn-ghost   { background:var(--surface2); border:1px solid var(--border); color:var(--muted); border-radius:9px; padding:10px 18px; font-size:0.875rem; font-family:'DM Sans',sans-serif; cursor:pointer; }
+    .empty-msg { padding:40px; text-align:center; color:var(--muted); font-size:0.9rem; }
+  </style>
+</head>
+<body>
+<script>requireAuth(); renderNavbar('appointments');</script>
+
+<div style="max-width:1100px;margin:0 auto;padding:32px 24px;">
+
+  <div style="font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;margin-bottom:4px;">Appointment Management</div>
+  <div style="color:var(--muted);font-size:0.9rem;margin-bottom:28px;">Review and manage patient consultation requests</div>
+
+  <!-- Stats -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:20px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div class="mini-label">Pending</div><div class="mini-value" style="color:#fbbf24;" id="cntPending">—</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div class="mini-label">Accepted</div><div class="mini-value" style="color:#4ade80;" id="cntAccepted">—</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div class="mini-label">Today</div><div class="mini-value" style="color:#4f8ef7;" id="cntToday">—</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;">
+      <div class="mini-label">Completed</div><div class="mini-value" style="color:#94a3b8;" id="cntCompleted">—</div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+    <button class="filter-btn active" onclick="filterAppts('all',this)">All</button>
+    <button class="filter-btn" onclick="filterAppts('PENDING',this)">Pending</button>
+    <button class="filter-btn" onclick="filterAppts('ACCEPTED',this)">Accepted</button>
+    <button class="filter-btn" onclick="filterAppts('REJECTED',this)">Rejected</button>
+    <button class="filter-btn" onclick="filterAppts('COMPLETED',this)">Completed</button>
+    <button class="filter-btn" onclick="filterAppts('CANCELLED',this)">Cancelled</button>
+  </div>
+
+  <!-- Table -->
+  <div class="card">
+    <div class="table-scroll">
+      <table class="appt-table">
+        <thead>
+        <tr>
+          <th class="col-patient">Patient</th>
+          <th class="col-date">Date</th>
+          <th class="col-time">Time</th>
+          <th class="col-status">Status</th>
+          <th class="col-actions">Actions</th>
+        </tr>
+        </thead>
+        <tbody id="apptList">
+        <tr><td colspan="5" class="empty-msg">Loading…</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<!-- Reschedule Modal -->
+<div class="modal-overlay" id="rescheduleModal">
+  <div class="modal">
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:6px;">Propose New Time</div>
+    <div style="font-size:0.85rem;color:var(--muted);margin-bottom:18px;">Suggest a different date and time to the patient.</div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:0.78rem;color:var(--muted);display:block;margin-bottom:5px;">New Date</label>
+      <input type="date" id="rescheduleDate" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;"/>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:0.78rem;color:var(--muted);display:block;margin-bottom:5px;">New Time</label>
+      <input type="text" id="rescheduleTime" placeholder="e.g. 10:00 AM" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;"/>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-ghost" style="flex:1;" onclick="document.getElementById('rescheduleModal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" style="flex:1;background:#a855f7;" onclick="confirmReschedule()">Send Proposal</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal-overlay" id="rejectModal">
+  <div class="modal">
+    <div style="font-size:1.1rem;font-weight:600;margin-bottom:6px;">Reject Appointment</div>
+    <div style="font-size:0.85rem;color:var(--muted);margin-bottom:18px;">Provide a reason so the patient can plan accordingly.</div>
+    <select id="rejectReason">
+      <option>Unavailable at this time</option>
+      <option>Schedule conflict</option>
+      <option>Emergency leave</option>
+      <option>Patient should consult a specialist</option>
+      <option>Other</option>
+    </select>
+    <textarea id="rejectNote" rows="3" placeholder="Additional notes (optional)…"></textarea>
+    <div style="display:flex;gap:10px;">
+      <button class="btn-ghost" style="flex:1;" onclick="document.getElementById('rejectModal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" style="flex:1;background:#ef4444;" onclick="confirmReject()">Reject</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  requireAuth();
+  let allAppts = [], currentFilter = 'all', rejectId = null;
+  const today = new Date().toISOString().split('T')[0];
+
+  async function loadAppointments() {
+    const tbody = document.getElementById('apptList');
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-msg">Loading…</td></tr>';
+    try {
+      allAppts = await API.get('/api/doctor/appointments') || [];
+      updateCounts();
+      renderAppts();
+    } catch (e) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">⚠ Could not load appointments: ${e.message}</td></tr>`;
+    }
+  }
+
+  function updateCounts() {
+    document.getElementById('cntPending').textContent   = allAppts.filter(a => a.status === 'PENDING').length;
+    document.getElementById('cntAccepted').textContent  = allAppts.filter(a => a.status === 'ACCEPTED').length;
+    document.getElementById('cntCompleted').textContent = allAppts.filter(a => a.status === 'COMPLETED').length;
+    document.getElementById('cntToday').textContent     = allAppts.filter(a => a.date === today).length;
+  }
+
+  function renderAppts() {
+    const tbody = document.getElementById('apptList');
+    const filtered = currentFilter === 'all' ? allAppts : allAppts.filter(a => a.status === currentFilter);
+
+    if (!filtered.length) {
+      tbody.innerHTML = `<tr><td colspan="5" class="empty-msg">📭 No ${currentFilter === 'all' ? '' : currentFilter.toLowerCase() + ' '}appointments</td></tr>`;
+      return;
+    }
+
+    tbody.innerHTML = filtered.map(a => `
+      <tr>
+        <td>
+          <div class="patient-cell">
+            <div class="avatar">${a.patientInitials || '?'}</div>
+            <div class="p-text">
+              <div class="p-name">${a.patientName}</div>
+              <div class="p-reason">${a.reason || 'No reason provided'}</div>
+            </div>
+          </div>
+        </td>
+        <td style="font-size:0.85rem;color:var(--muted);white-space:nowrap;">${fmtDate(a.date)}</td>
+        <td style="font-size:0.875rem;font-weight:500;white-space:nowrap;">${a.time || '—'}</td>
+        <td><span class="badge badge-${a.status}">${cap(a.status)}</span></td>
+        <td>
+          <div class="actions-cell">
+            ${a.status === 'PENDING' ? `
+              <button class="btn-accept" onclick="acceptAppt('${a.id}')">Accept</button>
+              <button class="btn-reject" onclick="openReject('${a.id}')">Reject</button>
+              <button class="btn-ghost" onclick="openReschedule('${a.id}')" style="font-size:0.78rem;padding:5px 10px;">🔄 Reschedule</button>
+            ` : a.status === 'ACCEPTED' ? `
+              ${a.meetingLink ? `
+                <a class="btn-join" href="${a.meetingLink}" target="_blank">🎥 Join</a>
+                <a href="session-report.html?apptId=${a.id}" style="background:var(--teal);color:#0f1117;border:none;border-radius:7px;padding:5px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;text-decoration:none;display:inline-block;">📄 Report</a>
+              ` : ''}
+              <button class="btn-complete" onclick="completeAppt('${a.id}')">✓ Done</button>
+            ` : `<span style="color:var(--muted);font-size:0.78rem;">—</span>`}
+          </div>
+        </td>
+      </tr>`).join('');
+  }
+
+  function filterAppts(f, el) {
+    currentFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+    renderAppts();
+  }
+
+  async function acceptAppt(id) {
+    try {
+      await API.post('/api/appointments/accept', { appointmentId: id });
+      await loadAppointments();
+    } catch (e) { alert('Could not accept: ' + e.message); }
+  }
+
+  async function completeAppt(id) {
+    try {
+      await API.post('/api/appointments/complete', { appointmentId: id });
+      await loadAppointments();
+    } catch (e) { await loadAppointments(); }
+  }
+
+  function openReject(id) { rejectId = id; document.getElementById('rejectModal').classList.add('open'); }
+
+  let rescheduleId = null;
+  function openReschedule(id) {
+    rescheduleId = id;
+    const min = new Date(); min.setDate(min.getDate() + 1);
+    document.getElementById('rescheduleDate').min = min.toISOString().split('T')[0];
+    document.getElementById('rescheduleDate').value = '';
+    document.getElementById('rescheduleTime').value = '';
+    document.getElementById('rescheduleModal').classList.add('open');
+  }
+
+  async function confirmReschedule() {
+    const proposedDate = document.getElementById('rescheduleDate').value;
+    const proposedTime = document.getElementById('rescheduleTime').value.trim();
+    if (!proposedDate) { alert('Please select a date.'); return; }
+    if (!proposedTime) { alert('Please enter a time.'); return; }
+    try {
+      await API.post('/api/appointments/reschedule', { appointmentId: rescheduleId, proposedDate, proposedTime });
+      document.getElementById('rescheduleModal').classList.remove('open');
+      loadAppointments();
+    } catch(e) { alert('Could not send proposal: ' + e.message); }
+  }
+
+  async function confirmReject() {
+    const reason = document.getElementById('rejectReason').value;
+    const note   = document.getElementById('rejectNote').value;
+    try {
+      await API.post('/api/appointments/reject', { appointmentId: rejectId, reason, note });
+      document.getElementById('rejectModal').classList.remove('open');
+      document.getElementById('rejectNote').value = '';
+      await loadAppointments();
+    } catch (e) { alert('Could not reject: ' + e.message); }
+  }
+
+  function cap(s) { return s ? s.charAt(0) + s.slice(1).toLowerCase() : ''; }
+
+  loadAppointments();
+</script>
+</body>
+</html>

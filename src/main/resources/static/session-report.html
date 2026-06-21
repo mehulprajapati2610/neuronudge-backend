@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>NeuroNudge — Submit Session Report</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <script src="navbar.js"></script>
+    <script src="api.js"></script>
+    <style>
+        :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--text:#e2e8f0;--muted:#8899b4;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+        .page{max-width:700px;margin:0 auto;padding:32px 24px;}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:28px;}
+        .field{margin-bottom:18px;}
+        label{display:block;font-size:0.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;font-weight:500;margin-bottom:6px;}
+        input,textarea,select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s;}
+        input:focus,textarea:focus,select:focus{border-color:var(--accent);}
+        textarea{resize:vertical;min-height:90px;}
+        .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:11px 24px;font-size:0.9rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;width:100%;margin-top:8px;transition:all 0.2s;}
+        .btn-primary:hover{background:#3d7ef5;}
+        .success{background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:10px;padding:16px;color:#4ade80;display:none;text-align:center;margin-top:16px;}
+    </style>
+</head>
+<body>
+<script>requireAuth();</script>
+<div class="page">
+    <h1 style="font-size:1.6rem;font-weight:700;margin-bottom:6px;">Session Report</h1>
+    <p style="color:var(--muted);font-size:0.9rem;margin-bottom:24px;">
+        Fill in the details below. A PDF will be automatically emailed to the patient.
+    </p>
+    <div class="card">
+        <div class="field">
+            <label>Appointment ID</label>
+            <input type="text" id="appointmentId" placeholder="Paste appointment ID here"/>
+        </div>
+        <div class="field">
+            <label>Clinical Notes</label>
+            <textarea id="clinicalNotes" placeholder="Session observations, patient demeanour, key discussion points..."></textarea>
+        </div>
+        <div class="field">
+            <label>Diagnosis Code (ICD-10)</label>
+            <input type="text" id="diagnosisCode" placeholder="e.g. F41.1 — Generalised Anxiety Disorder"/>
+        </div>
+        <div class="field">
+            <label>Medications / Recommendations</label>
+            <textarea id="medications" placeholder="Prescribed medications or lifestyle recommendations..." style="min-height:70px;"></textarea>
+        </div>
+        <div class="field">
+            <label>Next Steps for Patient</label>
+            <textarea id="nextSteps" placeholder="Homework, exercises, resources to look at..." style="min-height:70px;"></textarea>
+        </div>
+        <div class="field">
+            <label>Suggested Follow-up Date</label>
+            <input type="date" id="followUpDate"/>
+        </div>
+        <div class="field" style="border-top:1px solid var(--border);padding-top:18px;margin-top:6px;">
+            <label style="color:#f97316;">🔒 Private Doctor Note (not sent to patient)</label>
+            <textarea id="privateNote" placeholder="Internal notes for your reference only — not included in the PDF or email…" style="min-height:70px;border-color:rgba(249,115,22,0.3);"></textarea>
+        </div>
+        <button class="btn-primary" onclick="submitReport()">Submit Report &amp; Email to Patient</button>
+        <div class="success" id="successMsg">
+            ✅ Report submitted! PDF has been emailed to the patient.
+        </div>
+    </div>
+</div>
+<script>
+    // Pre-fill appointment ID from URL: session-report.html?apptId=XXX
+    const params = new URLSearchParams(location.search);
+    if (params.get('apptId')) document.getElementById('appointmentId').value = params.get('apptId');
+
+    async function submitReport() {
+      const token = sessionStorage.getItem('token');
+      const body = {
+    appointmentId: document.getElementById('appointmentId').value.trim(),
+    clinicalNotes:  document.getElementById('clinicalNotes').value.trim(),
+    diagnosisCode:  document.getElementById('diagnosisCode').value.trim(),
+    medications:    document.getElementById('medications').value.trim(),
+    nextSteps:      document.getElementById('nextSteps').value.trim(),
+    followUpDate:   document.getElementById('followUpDate').value || null,
+    privateNote:    document.getElementById('privateNote').value.trim() || null
+};
+      if (!body.appointmentId) { alert('Please enter the Appointment ID.'); return; }
+      const res = await fetch('/api/reports/submit', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','Authorization':'Bearer '+token},
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('successMsg').style.display = 'block';
+        setTimeout(() => location.href = 'doctor-appointments.html', 2500);
+      } else {
+        alert(data.message || 'Something went wrong.');
+      }
+    }
+</script>
+</body>
+</html>

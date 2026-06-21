@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Appointments</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1100px;margin:0 auto;padding:32px 24px;}
+    .page-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:32px;}
+    .page-title{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;}
+    .page-sub{color:var(--muted);font-size:0.9rem;margin-top:4px;}
+    .layout{display:grid;grid-template-columns:1fr 360px;gap:20px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .card-header{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .card-title{font-size:0.95rem;font-weight:600;}
+    .appt-row{display:grid;grid-template-columns:1fr auto auto auto;gap:16px;align-items:center;padding:14px 22px;border-bottom:1px solid rgba(42,51,71,0.5);transition:background 0.15s;}
+    .appt-row:hover{background:rgba(42,51,71,0.3);}
+    .appt-row:last-child{border-bottom:none;}
+    .appt-header-row{display:grid;grid-template-columns:1fr auto auto auto;gap:16px;padding:10px 22px;font-size:0.75rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;font-weight:500;border-bottom:1px solid var(--border);}
+    .doctor-info{display:flex;align-items:center;gap:10px;}
+    .doc-avatar{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#4f8ef7,#2dd4bf);display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:700;color:#fff;flex-shrink:0;}
+    .doc-name{font-size:0.875rem;font-weight:500;}
+    .doc-spec{font-size:0.78rem;color:var(--muted);}
+    .status-badge{font-size:0.75rem;padding:3px 10px;border-radius:99px;font-weight:500;}
+    .status-PENDING{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+    .status-ACCEPTED{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+    .status-REJECTED{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);}
+    .status-COMPLETED{background:rgba(100,116,139,0.2);color:#94a3b8;border:1px solid rgba(100,116,139,0.2);}
+    .status-CANCELLED{background:rgba(251,146,60,0.08);color:#fb923c;border:1px solid rgba(251,146,60,0.15);}
+    .status-RESCHEDULED{background:rgba(168,85,247,0.08);color:#c084fc;border:1px solid rgba(168,85,247,0.15);}
+    .appt-date{font-size:0.85rem;color:var(--muted);}
+    .action-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;font-size:0.78rem;cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+    .action-btn:hover{border-color:rgba(239,68,68,0.4);color:#f87171;}
+    .doc-list{padding:12px;}
+    .doc-card{background:var(--surface2);border:1px solid var(--border);border-radius:11px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all 0.2s;}
+    .doc-card:hover{border-color:rgba(79,142,247,0.3);transform:translateY(-1px);}
+    .doc-card.selected{border-color:var(--accent);background:rgba(79,142,247,0.06);}
+    .doc-card-header{display:flex;align-items:center;gap:12px;}
+    .doc-avatar-lg{width:42px;height:42px;border-radius:10px;background:linear-gradient(135deg,#4f8ef7,#2dd4bf);display:flex;align-items:center;justify-content:center;font-size:0.9rem;font-weight:700;color:#fff;flex-shrink:0;}
+    .doc-card-name{font-size:0.9rem;font-weight:600;}
+    .doc-card-spec{font-size:0.78rem;color:var(--accent);}
+    .doc-card-rating{display:flex;align-items:center;gap:4px;font-size:0.78rem;color:var(--muted);}
+    .slots-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+    .slot-btn{background:var(--surface);border:1px solid var(--border);border-radius:7px;padding:6px;font-size:0.78rem;text-align:center;cursor:pointer;transition:all 0.15s;color:var(--muted);}
+    .slot-btn:hover{border-color:var(--accent);color:var(--text);}
+    .slot-btn.selected{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .booking-form{padding:16px;border-top:1px solid var(--border);}
+    .booking-row{margin-bottom:14px;}
+    .booking-label{font-size:0.78rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;}
+    input[type=date],select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s;}
+    input[type=date]:focus,select:focus,textarea:focus{border-color:var(--accent);}
+    select option{background:var(--surface2);}
+    textarea{resize:none;}
+    .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 18px;font-size:0.875rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;letter-spacing:-0.01em;width:100%;}
+    .btn-primary:hover{background:#3d7ef5;transform:translateY(-1px);}
+    .btn-primary:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(4px);}
+    .modal-overlay.open{display:flex;}
+    .modal{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;animation:modalIn 0.25s ease;}
+    @keyframes modalIn{from{opacity:0;transform:scale(0.95);}to{opacity:1;transform:scale(1);}}
+    .modal-title{font-size:1.1rem;font-weight:600;margin-bottom:6px;}
+    .modal-sub{font-size:0.85rem;color:var(--muted);margin-bottom:20px;}
+    .rejection-note{background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.2);border-radius:8px;padding:10px 14px;font-size:0.82rem;color:#f87171;margin-top:-8px;margin-bottom:12px;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+.btn-join{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,#4f8ef7,#2dd4bf);color:#fff;border:none;border-radius:7px;padding:5px 12px;font-size:0.78rem;font-weight:600;cursor:pointer;text-decoration:none;transition:opacity 0.15s;font-family:'DM Sans',sans-serif;}
+.btn-join:hover{opacity:0.85;}
+  </style>
+</head>
+<body>
+  <script>requireAuth(); renderNavbar('appointments');</script>
+  <div class="page">
+    <div class="page-header">
+      <div>
+        <div class="page-title">Appointments</div>
+        <div class="page-sub">Manage your consultations with mental health professionals</div>
+      </div>
+    </div>
+    <div class="layout">
+      <div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">My Appointments</div></div>
+          <div class="appt-header-row"><span>Doctor</span><span>Date &amp; Time</span><span>Status</span><span>Action</span></div>
+          <div id="apptList"></div>
+        </div>
+      </div>
+      <div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Book a Consultation</div></div>
+          <div class="doc-list" id="docList"></div>
+          <div class="booking-form" id="bookingForm" style="display:none;">
+            <div class="booking-row">
+              <div class="booking-label">Date</div>
+              <input type="date" id="apptDate"/>
+            </div>
+            <div class="booking-row">
+              <div class="booking-label">Available Slots</div>
+              <div class="slots-grid" id="slotsGrid"></div>
+            </div>
+            <div class="booking-row">
+              <div class="booking-label">Reason (optional)</div>
+              <textarea id="apptReason" rows="3" placeholder="Briefly describe what you'd like to discuss…"></textarea>
+            </div>
+            <button class="btn-primary" id="bookBtn" onclick="bookAppointment()">Request Appointment</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="cancelModal">
+    <div class="modal">
+      <div class="modal-title">Cancel Appointment</div>
+      <div class="modal-sub">Please provide a reason for cancellation.</div>
+      <div class="booking-row">
+        <div class="booking-label">Reason</div>
+        <select id="cancelReason">
+          <option>Personal emergency</option>
+          <option>Reschedule needed</option>
+          <option>Feeling better</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:16px;">
+        <button class="action-btn" style="flex:1;padding:10px;" onclick="document.getElementById('cancelModal').classList.remove('open')">Keep Appointment</button>
+        <button class="btn-primary" style="flex:1;background:#ef4444;" onclick="confirmCancel()">Confirm Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    requireAuth();
+    let selectedDoc = null, selectedSlot = null, cancelApptId = null;
+
+    // ── Load user appointments from DB ────────────────────────────────────
+    async function loadAppointments() {
+      const list = document.getElementById('apptList');
+      list.innerHTML = `<div style="padding:20px;">${skeleton(3)}</div>`;
+      try {
+        const appts = await API.get('/api/user/appointments');
+        if (!appts || appts.length === 0) {
+          list.innerHTML = emptyState('📅', 'No appointments yet', 'Book your first consultation using the panel on the right');
+          return;
+        }
+        list.innerHTML = appts.map(a => `
+          <div class="appt-row">
+            <div class="doctor-info">
+              <div class="doc-avatar">${a.doctorInitials || '?'}</div>
+              <div>
+                <div class="doc-name">${a.doctorName}</div>
+                <div class="doc-spec">${a.doctorSpec || ''}</div>
+                ${a.status === 'REJECTED' && a.rejectionReason ? `<div class="rejection-note" style="margin-top:4px;padding:3px 8px;border-radius:6px;">Rejected: ${a.rejectionReason}</div>` : ''}
+${a.status === 'RESCHEDULED' ? `<div class="rejection-note" style="margin-top:4px;padding:3px 8px;border-radius:6px;background:rgba(168,85,247,0.08);border-color:rgba(168,85,247,0.2);color:#c084fc;">🔄 ${a.rejectionReason || 'Doctor proposed a new time'}</div>` : ''}
+              </div>
+            </div>
+            <div class="appt-date">${fmtDate(a.date)}<br/>${a.time || ''}</div>
+            <span class="status-badge status-${a.status}">${cap(a.status)}</span>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+  ${a.status === 'ACCEPTED' && a.meetingLink
+    ? `<a class="btn-join" href="${a.meetingLink}" target="_blank">🎥 Join</a>`
+    : ''}
+  ${(a.status === 'PENDING' || a.status === 'ACCEPTED')
+    ? `<button class="action-btn" onclick="openCancel('${a.id}')">Cancel</button>`
+    : '<span style="width:60px;display:inline-block;"></span>'}
+</div>
+          </div>`).join('');
+      } catch (e) {
+        list.innerHTML = emptyState('⚠', 'Could not load appointments', e.message);
+      }
+    }
+
+    // ── Load doctors from DB ──────────────────────────────────────────────
+    async function loadDoctors() {
+      const list = document.getElementById('docList');
+      list.innerHTML = `<div style="padding:16px;">${skeleton(2)}</div>`;
+      try {
+        const docs = await API.get('/api/doctors');
+        if (!docs || docs.length === 0) {
+          list.innerHTML = emptyState('👨‍⚕️', 'No doctors available', 'Check back later');
+          return;
+        }
+        list.innerHTML = docs.map(d => `
+          <div class="doc-card" id="doc_${d.id}" onclick="selectDoc(${JSON.stringify(d).replace(/"/g,'&quot;')})">
+            <div class="doc-card-header">
+              <div class="doc-avatar-lg">${d.initials}</div>
+              <div>
+                <div class="doc-card-name">${d.name}</div>
+                <div class="doc-card-spec">${d.specialization}</div>
+                ${d.experience ? `<div style="font-size:0.75rem;color:var(--muted);">${d.experience} yrs experience</div>` : ''}
+              </div>
+              ${d.rating ? `<div class="doc-card-rating" style="margin-left:auto;">⭐ ${d.rating}</div>` : ''}
+            </div>
+          </div>`).join('');
+      } catch (e) {
+        list.innerHTML = emptyState('⚠', 'Could not load doctors', e.message);
+      }
+    }
+
+   function selectDoc(d) {
+  selectedDoc = d; selectedSlot = null;
+  document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
+  const card = document.getElementById('doc_' + d.id);
+  if (card) card.classList.add('selected');
+  document.getElementById('bookingForm').style.display = 'block';
+  const min = new Date(); min.setDate(min.getDate() + 1);
+  const dateInput = document.getElementById('apptDate');
+  dateInput.min = min.toISOString().split('T')[0];
+  dateInput.value = '';
+  document.getElementById('slotsGrid').innerHTML = '<div style="color:var(--muted);font-size:0.82rem;">Pick a date to see available slots</div>';
+  dateInput.onchange = () => loadSlots();
+}
+
+async function loadSlots() {
+  const date = document.getElementById('apptDate').value;
+  if (!selectedDoc || !date) return;
+  selectedSlot = null;
+  const grid = document.getElementById('slotsGrid');
+  grid.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;">Loading slots…</div>';
+  try {
+    const data = await API.get('/api/appointments/available-slots?doctorId=' + selectedDoc.id + '&date=' + date);
+    const bookedTimes = data.bookedTimes || [];
+    const allSlots = selectedDoc.availabilitySlots || [];
+    if (!allSlots.length) {
+      grid.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;">No slots configured for this doctor</div>';
+      return;
+    }
+    grid.innerHTML = allSlots.map(s => {
+      const taken = bookedTimes.includes(s);
+      return '<div class="slot-btn' + (taken ? ' taken' : '') + '"'
+        + (taken ? ' title="Already booked" style="opacity:0.4;cursor:not-allowed;"' : ' onclick="selectSlot(this,\'' + s + '\')"')
+        + '>' + s + (taken ? ' ✗' : '') + '</div>';
+    }).join('');
+  } catch (e) {
+    grid.innerHTML = '<div style="color:var(--muted);font-size:0.82rem;">Could not load slots</div>';
+  }
+}
+
+function selectSlot(el, slot) {
+  selectedSlot = slot;
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
+    async function bookAppointment() {
+      if (!selectedDoc) { alert('Please select a doctor.'); return; }
+      const date = document.getElementById('apptDate').value;
+      if (!date) { alert('Please select a date.'); return; }
+      if (!selectedSlot) { alert('Please select a time slot.'); return; }
+      const reason = document.getElementById('apptReason').value;
+      const btn = document.getElementById('bookBtn');
+      btn.textContent = 'Requesting…'; btn.disabled = true;
+      try {
+        await API.post('/api/appointments/request', { doctorId: selectedDoc.id, date, time: selectedSlot, reason });
+        document.getElementById('bookingForm').style.display = 'none';
+        document.querySelectorAll('.doc-card').forEach(c => c.classList.remove('selected'));
+        document.getElementById('apptReason').value = '';
+        selectedDoc = null; selectedSlot = null;
+        await loadAppointments();
+      } catch (e) {
+        alert('Could not book appointment: ' + e.message);
+      }
+      btn.textContent = 'Request Appointment'; btn.disabled = false;
+    }
+
+    function openCancel(id) { cancelApptId = id; document.getElementById('cancelModal').classList.add('open'); }
+
+    async function confirmCancel() {
+      const reason = document.getElementById('cancelReason').value;
+      try {
+        await API.post('/api/appointments/cancel', { appointmentId: cancelApptId, reason });
+        document.getElementById('cancelModal').classList.remove('open');
+        await loadAppointments();
+      } catch (e) {
+        alert('Could not cancel: ' + e.message);
+      }
+    }
+
+    function cap(s) { return s ? s.charAt(0) + s.slice(1).toLowerCase() : ''; }
+
+    // ── Init ──────────────────────────────────────────────────────────────
+    Promise.all([loadAppointments(), loadDoctors()]);
+  </script>
+</body>
+</html>

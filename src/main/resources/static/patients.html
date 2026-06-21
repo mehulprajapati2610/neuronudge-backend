@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Patients</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1200px;margin:0 auto;padding:32px 24px;}
+    .page-title{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;margin-bottom:4px;}
+    .page-sub{color:var(--muted);font-size:0.9rem;margin-bottom:28px;}
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:20px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .card-header{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .card-title{font-size:0.95rem;font-weight:600;}
+    .search-box{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 14px;display:flex;align-items:center;gap:8px;margin:12px;}
+    .search-box input{background:none;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;width:100%;}
+    .search-box input::placeholder{color:#4a5568;}
+    .patient-item{display:flex;align-items:center;gap:12px;padding:12px 16px;cursor:pointer;transition:all 0.15s;border-bottom:1px solid rgba(42,51,71,0.4);}
+    .patient-item:hover{background:rgba(42,51,71,0.4);}
+    .patient-item.active{background:rgba(79,142,247,0.08);border-right:2px solid var(--accent);}
+    .patient-item:last-child{border-bottom:none;}
+    .p-avatar{width:38px;height:38px;border-radius:10px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;color:var(--muted);flex-shrink:0;}
+    .p-info{flex:1;min-width:0;}
+    .p-name{font-size:0.875rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .p-meta{font-size:0.75rem;color:var(--muted);}
+    .risk-badge{font-size:0.68rem;padding:2px 7px;border-radius:99px;font-weight:600;flex-shrink:0;}
+    .risk-HIGH{background:rgba(249,115,22,0.12);color:#f97316;border:1px solid rgba(249,115,22,0.25);}
+    .risk-MEDIUM{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+    .risk-LOW{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+    .risk-UNKNOWN{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.2);}
+    .detail-pane{display:flex;flex-direction:column;gap:0;}
+    .detail-header{padding:20px 22px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;}
+    .detail-avatar{width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#4f8ef7,#2dd4bf);display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:#fff;}
+    .detail-name{font-size:1.1rem;font-weight:600;}
+    .detail-email{font-size:0.82rem;color:var(--muted);}
+    .stat-pills{display:flex;gap:10px;padding:16px 22px;border-bottom:1px solid var(--border);flex-wrap:wrap;}
+    .stat-pill{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;text-align:center;flex:1;min-width:80px;}
+    .pill-val{font-size:1.3rem;font-weight:700;letter-spacing:-0.02em;}
+    .pill-label{font-size:0.72rem;color:var(--muted);margin-top:2px;}
+    .charts-area{padding:20px 22px;}
+    .chart-title-sm{font-size:0.85rem;font-weight:600;margin-bottom:12px;}
+    .rec-area{padding:20px 22px;border-top:1px solid var(--border);}
+    textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 14px;font-size:0.875rem;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;resize:none;transition:border-color 0.2s;margin-bottom:10px;}
+    textarea:focus{border-color:var(--accent);}
+    .btn-send{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 20px;font-size:0.875rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+    .btn-send:hover{background:#3d7ef5;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+  </style>
+</head>
+<body>
+  <script>requireAuth(); renderNavbar('patients');</script>
+  <div class="page">
+    <div class="page-title">Patient Overview</div>
+    <div class="page-sub">Monitor patient wellness data and send recommendations</div>
+    <div class="layout">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">All Patients</div>
+          <span id="patientCount" style="font-size:0.8rem;color:var(--muted);">Loading…</span>
+        </div>
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" placeholder="Search patients…" oninput="filterPatients(this.value)" id="searchInput"/>
+        </div>
+        <div id="patientList"></div>
+      </div>
+
+      <div class="card" id="detailPane">
+        <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:420px;color:var(--muted);text-align:center;">
+          <div style="font-size:3rem;margin-bottom:14px;">👆</div>
+          <div style="font-size:0.95rem;font-weight:500;margin-bottom:6px;color:var(--text);">Select a patient</div>
+          <div style="font-size:0.85rem;">Click on a patient to view their wellness insights</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    requireAuth();
+    let allPatients = [], selectedPatient = null;
+    let detailChart = null;
+
+    async function loadPatients() {
+      const list = document.getElementById('patientList');
+      list.innerHTML = `<div style="padding:16px;">${skeleton(4)}</div>`;
+      try {
+        allPatients = await API.get('/api/doctor/patients') || [];
+        document.getElementById('patientCount').textContent = allPatients.length + ' patients';
+        renderList(allPatients);
+      } catch (e) {
+        list.innerHTML = emptyState('⚠', 'Could not load patients', e.message);
+        document.getElementById('patientCount').textContent = 'Error';
+      }
+    }
+
+    function filterPatients(query) {
+      const q = query.toLowerCase();
+      renderList(q ? allPatients.filter(p =>
+        p.name.toLowerCase().includes(q) || (p.email || '').toLowerCase().includes(q)) : allPatients);
+    }
+
+    function renderList(list) {
+      const container = document.getElementById('patientList');
+      if (!list || list.length === 0) {
+        container.innerHTML = emptyState('👥', 'No patients found');
+        return;
+      }
+      container.innerHTML = list.map(p => `
+        <div class="patient-item ${selectedPatient?.id === p.id ? 'active' : ''}" onclick="selectPatient('${p.id}')">
+          <div class="p-avatar">${p.initials || '?'}</div>
+          <div class="p-info">
+            <div class="p-name">${p.name}</div>
+            <div class="p-meta">Burnout: ${p.burnoutScore ?? '—'}%</div>
+          </div>
+          <span class="risk-badge risk-${p.riskLevel || 'UNKNOWN'}">${p.riskLevel || 'N/A'}</span>
+        </div>`).join('');
+    }
+
+    async function selectPatient(id) {
+      selectedPatient = allPatients.find(p => p.id === id);
+      renderList(allPatients);
+      // Load full insights from DB
+      try {
+        const data = await API.get(`/api/doctor/patients/${id}/insights`);
+        renderDetail(data);
+      } catch (e) {
+        document.getElementById('detailPane').innerHTML = emptyState('⚠', 'Could not load patient data', e.message);
+      }
+    }
+
+    function renderDetail(data) {
+      const p = data.patient;
+      const s = data.summary;
+      const logs = data.logs || [];
+      const riskColor = !s ? '#94a3b8' : s.riskLevel === 'HIGH' ? '#f97316' : s.riskLevel === 'MEDIUM' ? '#fbbf24' : '#4ade80';
+
+      document.getElementById('detailPane').innerHTML = `
+        <div class="detail-header">
+          <div class="detail-avatar">${p.initials}</div>
+          <div>
+            <div class="detail-name">${p.name}</div>
+            <div class="detail-email">${p.email}</div>
+          </div>
+          <div style="margin-left:auto;">
+            ${s ? `<span class="risk-badge risk-${s.riskLevel}" style="font-size:0.78rem;padding:4px 12px;">${s.riskLevel} RISK · ${s.burnoutScore}% Burnout</span>` : '<span style="font-size:0.8rem;color:var(--muted);">No data yet</span>'}
+          </div>
+        </div>
+        ${s ? `
+        <div class="stat-pills">
+          <div class="stat-pill"><div class="pill-val" style="color:#4f8ef7;">${s.avgMood}</div><div class="pill-label">Avg Mood</div></div>
+          <div class="stat-pill"><div class="pill-val" style="color:#c084fc;">${s.avgStress}</div><div class="pill-label">Avg Stress</div></div>
+          <div class="stat-pill"><div class="pill-val" style="color:#2dd4bf;">${s.avgSleep}h</div><div class="pill-label">Avg Sleep</div></div>
+          <div class="stat-pill"><div class="pill-val" style="color:${riskColor};">${s.burnoutScore}%</div><div class="pill-label">Burnout</div></div>
+        </div>` : ''}
+        <div class="charts-area">
+          <div class="chart-title-sm">Mood &amp; Stress — Last 30 Days</div>
+          <div id="detailChartWrap">
+            ${logs.length === 0 ? emptyState('📊', 'No check-in data yet', 'Patient has not logged any check-ins') : '<canvas id="detailChart" height="120"></canvas>'}
+          </div>
+        </div>
+        <div class="rec-area">
+  <div class="chart-title-sm" style="margin-bottom:12px;">Assessment Scores</div>
+  <div style="display:flex;gap:10px;margin-bottom:18px;">
+    ${data.phq9 ? `
+      <div class="stat-pill" style="flex:1;">
+        <div class="pill-val" style="color:#f97316;">${data.phq9.score}</div>
+        <div class="pill-label">PHQ-9 · ${data.phq9.severity}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:3px;">${new Date(data.phq9.date).toLocaleDateString()}</div>
+      </div>` : `
+      <div class="stat-pill" style="flex:1;opacity:0.5;">
+        <div class="pill-val">—</div>
+        <div class="pill-label">PHQ-9 · Not taken</div>
+      </div>`}
+    ${data.gad7 ? `
+      <div class="stat-pill" style="flex:1;">
+        <div class="pill-val" style="color:#c084fc;">${data.gad7.score}</div>
+        <div class="pill-label">GAD-7 · ${data.gad7.severity}</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:3px;">${new Date(data.gad7.date).toLocaleDateString()}</div>
+      </div>` : `
+      <div class="stat-pill" style="flex:1;opacity:0.5;">
+        <div class="pill-val">—</div>
+        <div class="pill-label">GAD-7 · Not taken</div>
+      </div>`}
+  </div>
+  <div class="chart-title-sm" style="margin-bottom:10px;">Send Recommendation</div>
+  <textarea id="recText" rows="3" placeholder="Write a personalised wellness recommendation for ${p.name}…"></textarea>
+  <button class="btn-send" onclick="sendRec('${p.id}')">Send Recommendation</button>
+</div>
+<div class="rec-area" style="border-top:1px solid var(--border);">
+  <div class="chart-title-sm" style="margin-bottom:12px;">Record Assessment Score</div>
+  <div style="display:flex;gap:10px;align-items:flex-end;">
+    <div style="flex:1;">
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:5px;">Type</div>
+      <select id="scoreType" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;width:100%;outline:none;">
+        <option value="PHQ9">PHQ-9 (Depression, 0–27)</option>
+        <option value="GAD7">GAD-7 (Anxiety, 0–21)</option>
+      </select>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:0.75rem;color:var(--muted);margin-bottom:5px;">Score</div>
+      <input type="number" id="scoreVal" min="0" max="27" placeholder="e.g. 12"
+        style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;width:100%;outline:none;"/>
+    </div>
+    <button class="btn-send" onclick="recordScore('${p.id}')" style="flex-shrink:0;">Record</button>
+  </div>
+  <div id="scoreMsg" style="font-size:0.8rem;margin-top:8px;display:none;"></div>
+</div>`;
+
+      if (logs.length > 0) {
+        setTimeout(() => {
+          if (detailChart) detailChart.destroy();
+          const labels = logs.map(l => new Date(l.date).toLocaleDateString('en-US', {month:'short',day:'numeric'}));
+          detailChart = new Chart(document.getElementById('detailChart').getContext('2d'), {
+            type: 'line',
+            data: {
+              labels,
+              datasets: [
+                { label:'Mood',   data:logs.map(l=>l.mood),   borderColor:'#4f8ef7', backgroundColor:'rgba(79,142,247,0.06)', fill:true, tension:0.4, pointRadius:3, borderWidth:2 },
+                { label:'Stress', data:logs.map(l=>l.stress), borderColor:'#c084fc', backgroundColor:'rgba(192,132,252,0.04)', fill:true, tension:0.4, pointRadius:3, borderWidth:2 }
+              ]
+            },
+            options: {
+              responsive:true, maintainAspectRatio:true,
+              plugins:{ legend:{ labels:{ color:'#8899b4', font:{family:'DM Sans',size:11}, boxWidth:10, boxHeight:10 }}},
+              scales:{
+                x:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:10}} },
+                y:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:10}}, min:0, max:10 }
+              }
+            }
+          });
+        }, 50);
+      }
+    }
+
+    async function sendRec(patientId) {
+      const text = document.getElementById('recText').value.trim();
+      if (!text) { alert('Please write a recommendation.'); return; }
+      const btn = document.querySelector('.btn-send');
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        await API.post('/api/recommendations', { userId: patientId, recommendation: text });
+        document.getElementById('recText').value = '';
+        btn.textContent = '✓ Sent!'; btn.style.background = '#1e3a2a'; btn.style.color = '#4ade80';
+        setTimeout(() => { btn.textContent = 'Send Recommendation'; btn.style.background = ''; btn.style.color = ''; btn.disabled = false; }, 2000);
+      } catch (e) {
+        alert('Could not send recommendation: ' + e.message);
+        btn.textContent = 'Send Recommendation'; btn.disabled = false;
+      }
+    }
+
+    async function recordScore(patientId) {
+  const type = document.getElementById('scoreType').value;
+  const score = parseInt(document.getElementById('scoreVal').value);
+  const maxScore = type === 'PHQ9' ? 27 : 21;
+  if (isNaN(score) || score < 0 || score > maxScore) {
+    alert('Please enter a valid score (0–' + maxScore + ') for ' + type);
+    return;
+  }
+  try {
+    const res = await API.post('/api/assessments/doctor/record', { patientId, type, score });
+    const msg = document.getElementById('scoreMsg');
+    msg.style.display = 'block';
+    msg.style.color = '#4ade80';
+    msg.textContent = '✓ Recorded: ' + type + ' score ' + score + ' — ' + res.severity;
+    document.getElementById('scoreVal').value = '';
+    setTimeout(() => { msg.style.display = 'none'; }, 3000);
+    // Refresh the patient detail to show updated scores
+    selectPatient(patientId);
+  } catch(e) {
+    alert('Could not record score: ' + e.message);
+  }
+}
+
+    loadPatients();
+  </script>
+</body>
+</html>

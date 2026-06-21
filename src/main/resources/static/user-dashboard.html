@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1200px;margin:0 auto;padding:32px 24px;}
+    .page-header{margin-bottom:28px;}
+    .greeting{font-family:'Instrument Serif',serif;font-size:1.9rem;line-height:1.2;letter-spacing:-0.02em;}
+    .greeting em{color:var(--accent);font-style:italic;}
+    .date-str{color:var(--muted);font-size:0.9rem;margin-top:4px;}
+    .cards-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:20px;}
+    .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;transition:all 0.2s;}
+    .stat-card:hover{border-color:rgba(79,142,247,0.3);transform:translateY(-2px);}
+    .stat-label{font-size:0.78rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px;display:flex;align-items:center;gap:6px;}
+    .stat-dot{width:7px;height:7px;border-radius:50%;}
+    .stat-value{font-size:2rem;font-weight:700;letter-spacing:-0.03em;line-height:1;}
+    .stat-sub{font-size:0.8rem;color:var(--muted);margin-top:6px;}
+    .stat-trend{display:inline-flex;align-items:center;gap:3px;font-size:0.75rem;padding:2px 8px;border-radius:99px;margin-top:8px;}
+    .trend-good{background:rgba(34,197,94,0.1);color:#4ade80;}
+    .trend-bad{background:rgba(239,68,68,0.1);color:#f87171;}
+    .trend-stable{background:rgba(100,116,139,0.2);color:#94a3b8;}
+    .no-data{color:var(--muted);font-size:1.5rem;font-weight:400;}
+    .stat-card.burnout-high{border-color:rgba(239,68,68,0.4)!important;animation:burnoutPulse 2s ease-in-out infinite;}
+    @keyframes burnoutPulse{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,0);}50%{box-shadow:0 0 0 6px rgba(239,68,68,0.15);}}
+    .charts-grid{display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:20px;}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+    .chart-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+    .chart-title{font-size:0.95rem;font-weight:600;}
+    .chart-badge{font-size:0.75rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--muted);}
+    .bottom-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+    .checkin-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;}
+    .slider-group{margin-bottom:16px;}
+    .slider-label{display:flex;justify-content:space-between;font-size:0.85rem;margin-bottom:8px;}
+    .slider-name{color:var(--muted);}
+    .slider-val{font-weight:600;color:var(--accent);}
+    input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:5px;border-radius:99px;background:var(--border);outline:none;}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--bg);}
+    .btn-submit{width:100%;background:var(--accent);color:#fff;border:none;border-radius:10px;padding:11px;font-size:0.9rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;margin-top:4px;}
+    .btn-submit:hover{background:#3d7ef5;transform:translateY(-1px);}
+    .btn-submit:disabled{opacity:0.6;cursor:not-allowed;transform:none;}
+    .recent-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;}
+    .activity-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);}
+    .activity-item:last-child{border-bottom:none;}
+    .activity-icon{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:0.9rem;flex-shrink:0;}
+    .activity-text{flex:1;}
+    .activity-title{font-size:0.855rem;font-weight:500;}
+    .activity-time{font-size:0.75rem;color:var(--muted);}
+    .activity-badge{font-size:0.72rem;padding:2px 9px;border-radius:99px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+    /* Nudges mini */
+    .nudges-mini{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+    .nudge-mini-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(42,51,71,0.5);}
+    .nudge-mini-item:last-child{border-bottom:none;}
+    .nudge-mini-icon{font-size:1.2rem;flex-shrink:0;}
+    .nudge-mini-info{flex:1;}
+    .nudge-mini-title{font-size:0.855rem;font-weight:500;}
+    .nudge-mini-desc{font-size:0.75rem;color:var(--muted);}
+    .nudge-mini-done{font-size:0.72rem;color:#4ade80;font-weight:600;}
+    .btn-nudge-start{background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 12px;font-size:0.78rem;cursor:pointer;color:var(--muted);font-family:'DM Sans',sans-serif;white-space:nowrap;transition:all 0.15s;text-decoration:none;display:inline-block;}
+    .btn-nudge-start:hover{border-color:rgba(79,142,247,0.4);color:var(--text);}
+    /* Crisis Modal */
+    .crisis-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:2000;backdrop-filter:blur(12px);}
+    .crisis-overlay.open{display:flex;}
+    .crisis-modal{background:var(--surface);border:1px solid rgba(239,68,68,0.3);border-radius:20px;padding:40px;max-width:480px;width:100%;text-align:center;animation:cIn 0.35s ease;}
+    @keyframes cIn{from{opacity:0;transform:scale(0.85);}to{opacity:1;transform:scale(1);}}
+    .crisis-icon{font-size:3rem;margin-bottom:16px;}
+    .crisis-score{font-size:4rem;font-weight:700;color:#f97316;letter-spacing:-0.04em;line-height:1;}
+    .crisis-label{font-size:0.9rem;color:var(--muted);margin-bottom:16px;}
+    .crisis-title{font-size:1.3rem;font-weight:600;margin-bottom:8px;}
+    .crisis-msg{font-size:0.875rem;color:var(--muted);line-height:1.6;margin-bottom:24px;}
+    .crisis-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:24px;}
+    .crisis-btn{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 10px;font-size:0.82rem;font-weight:500;cursor:pointer;color:var(--text);font-family:'DM Sans',sans-serif;transition:all 0.15s;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:6px;}
+    .crisis-btn:hover{border-color:rgba(79,142,247,0.4);background:rgba(79,142,247,0.08);}
+    .crisis-btn-icon{font-size:1.4rem;}
+    .crisis-dismiss{font-size:0.78rem;color:var(--muted);cursor:pointer;text-decoration:underline;}
+    .crisis-dismiss:disabled{opacity:0.4;cursor:not-allowed;}
+    .crisis-countdown{font-size:0.78rem;color:var(--muted);margin-bottom:8px;}
+    @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    .stat-card{animation:fadeUp 0.4s ease both;}
+    .stat-card:nth-child(1){animation-delay:0.05s;}
+    .stat-card:nth-child(2){animation-delay:0.1s;}
+    .stat-card:nth-child(3){animation-delay:0.15s;}
+    .stat-card:nth-child(4){animation-delay:0.2s;}
+  </style>
+</head>
+<body>
+  <script>requireAuth(); renderNavbar('dashboard');</script>
+  <div class="page">
+    <div class="page-header">
+      <div class="greeting">Good <em id="timeGreet">morning</em>, <span id="userName">…</span></div>
+      <div class="date-str" id="dateStr"></div>
+    </div>
+
+    <div class="cards-grid">
+      <div class="stat-card" id="burnoutCard">
+        <div class="stat-label"><span class="stat-dot" style="background:#f97316;"></span>Burnout Risk</div>
+        <div class="stat-value" id="burnoutVal"><span class="no-data">—</span></div>
+        <div class="stat-sub" id="burnoutSub">Log a check-in to see your score</div>
+        <div class="stat-trend trend-stable" id="burnoutTrend" style="display:none;"></div>
+      </div>
+      <div class="stat-card" id="nextApptCard" style="grid-column:span 1;">
+        <div class="stat-label"><span class="stat-dot" style="background:#a78bfa;"></span>Next Appointment</div>
+        <div id="nextApptVal" style="font-size:1rem;font-weight:600;margin:8px 0 4px;line-height:1.3;"><span class="no-data">—</span></div>
+        <div class="stat-sub" id="nextApptSub">No upcoming appointments</div>
+        <div id="nextApptLink" style="margin-top:8px;display:none;"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#4ade80;"></span>Today's Mood</div>
+        <div class="stat-value" id="moodVal"><span class="no-data">—</span></div>
+        <div class="stat-sub">out of 10</div>
+        <div class="stat-trend" id="moodTrend" style="display:none;"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#60a5fa;"></span>Sleep Quality</div>
+        <div class="stat-value" id="sleepVal"><span class="no-data">—</span></div>
+        <div class="stat-sub">Last night</div>
+        <div class="stat-trend" id="sleepTrend" style="display:none;"></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label"><span class="stat-dot" style="background:#c084fc;"></span>Stress Level</div>
+        <div class="stat-value" id="stressVal"><span class="no-data">—</span></div>
+        <div class="stat-sub">out of 10</div>
+        <div class="stat-trend" id="stressTrend" style="display:none;"></div>
+      </div>
+    </div>
+
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">Mood &amp; Stress Trends</div><span class="chart-badge">Last 7 Days</span></div>
+        <div id="trendWrap"><canvas id="trendChart" height="120"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header"><div class="chart-title">Sleep Pattern</div><span class="chart-badge">This Week</span></div>
+        <div id="sleepWrap"><canvas id="sleepChart" height="120"></canvas></div>
+      </div>
+    </div>
+
+    <div class="bottom-grid">
+      <div class="checkin-card">
+        <div class="chart-header" style="margin-bottom:18px;">
+          <div class="chart-title">Daily Check-In</div>
+          <span class="chart-badge" id="checkinStatus">Not done today</span>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">Mood</span><span class="slider-val" id="moodDisplay">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="moodSlider" oninput="updateSlider('moodDisplay',this.value)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">Stress</span><span class="slider-val" id="stressDisplay">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="stressSlider" oninput="updateSlider('stressDisplay',this.value)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">Sleep Hours</span><span class="slider-val" id="sleepDisplay">7h</span></div>
+          <input type="range" min="0" max="12" step="0.5" value="7" id="sleepSlider" oninput="updateSlider('sleepDisplay',this.value,'h')"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">Focus</span><span class="slider-val" id="focusDisplay">5</span></div>
+          <input type="range" min="1" max="10" value="5" id="focusSlider" oninput="updateSlider('focusDisplay',this.value)"/>
+        </div>
+        <div class="slider-group">
+          <div class="slider-label"><span class="slider-name">Work Hours</span><span class="slider-val" id="workDisplay">8h</span></div>
+          <input type="range" min="0" max="16" step="0.5" value="8" id="workSlider" oninput="updateSlider('workDisplay',this.value,'h')"/>
+        </div>
+        <button class="btn-submit" id="checkinBtn" onclick="submitCheckin()">Log Today's Check-In</button>
+      </div>
+      <div class="recent-card">
+        <div class="chart-title" style="margin-bottom:14px;">Recent Activity</div>
+        <div id="activityFeed"><div style="padding:10px 0;">${skeleton ? skeleton(4) : ''}</div></div>
+      </div>
+    </div>
+
+    <!-- Nudges Mini Widget -->
+    <div class="nudges-mini">
+      <div class="chart-header" style="margin-bottom:14px;">
+        <div class="chart-title">Today's Wellness Nudges</div>
+        <a href="nudges.html" style="font-size:0.8rem;color:var(--accent);text-decoration:none;">View all →</a>
+      </div>
+      <div id="nudgesMini"></div>
+    </div>
+  </div>
+
+  <!-- High Burnout Crisis Modal -->
+  <div class="crisis-overlay" id="crisisModal">
+    <div class="crisis-modal">
+      <div class="crisis-icon">⚠️</div>
+      <div class="crisis-score" id="crisisScore">0%</div>
+      <div class="crisis-label">Burnout Risk Score</div>
+      <div class="crisis-title">You're carrying a lot right now</div>
+      <div class="crisis-msg">Your burnout level is high. This doesn't mean you're broken — it means you need care. You're not alone in this. Here are some immediate steps that can help:</div>
+      <div class="crisis-actions">
+        <a href="nudges.html" class="crisis-btn"><span class="crisis-btn-icon">🫁</span><span>Start a Breathing Exercise</span></a>
+        <a href="chat.html" class="crisis-btn"><span class="crisis-btn-icon">💬</span><span>Talk to Nora</span></a>
+        <a href="appointments.html" class="crisis-btn"><span class="crisis-btn-icon">📅</span><span>Book a Doctor</span></a>
+      </div>
+      <div class="crisis-countdown" id="crisisCountdown">You can dismiss this in 5 seconds…</div>
+      <span class="crisis-dismiss" id="crisisDismiss" onclick="closeCrisis()" disabled>Dismiss</span>
+    </div>
+  </div>
+
+  <script>
+    requireAuth();
+    const h = new Date().getHours();
+    document.getElementById('timeGreet').textContent = h<12?'morning':h<17?'afternoon':'evening';
+    document.getElementById('dateStr').textContent = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+    document.getElementById('userName').textContent = (API.name()||'…').split(' ')[0];
+
+    function updateSlider(id, val, suffix='') { document.getElementById(id).textContent = val+suffix; }
+
+    let trendChart=null, sleepChart=null;
+    const chartCfg = {
+      responsive:true, maintainAspectRatio:true,
+      plugins:{ legend:{ labels:{ color:'#8899b4', font:{family:'DM Sans',size:11}, boxWidth:10, boxHeight:10 }}},
+      scales:{
+        x:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:10}} },
+        y:{ grid:{color:'rgba(42,51,71,0.5)'}, ticks:{color:'#8899b4',font:{family:'DM Sans',size:10}}, min:0 }
+      }
+    };
+
+    async function loadDashboard() {
+      try {
+        const d = await API.get('/api/user/dashboard');
+        if (!d) return;
+
+        if (d.mood != null) {
+          document.getElementById('moodVal').textContent = d.mood;
+          const t = document.getElementById('moodTrend');
+          t.style.display='inline-flex'; t.textContent = d.mood>=7?'😊 Good':d.mood>=4?'😐 Moderate':'😔 Low';
+          t.className='stat-trend '+(d.mood>=7?'trend-good':d.mood>=4?'trend-stable':'trend-bad');
+        } else { document.getElementById('moodVal').innerHTML='<span class="no-data">—</span>'; }
+
+        if (d.stress != null) {
+          document.getElementById('stressVal').textContent = d.stress;
+          const t = document.getElementById('stressTrend');
+          t.style.display='inline-flex'; t.textContent = d.stress>=7?'High':d.stress>=4?'Moderate':'Low';
+          t.className='stat-trend '+(d.stress>=7?'trend-bad':d.stress>=4?'trend-stable':'trend-good');
+        } else { document.getElementById('stressVal').innerHTML='<span class="no-data">—</span>'; }
+
+        if (d.sleep != null) {
+          document.getElementById('sleepVal').innerHTML = d.sleep+'<span style="font-size:1rem;color:var(--muted)">h</span>';
+          const diff = (d.sleep-8).toFixed(1);
+          const t = document.getElementById('sleepTrend');
+          t.style.display='inline-flex'; t.textContent = diff>=0?`+${diff}h above target`:`${diff}h below target`;
+          t.className='stat-trend '+(d.sleep>=7?'trend-good':'trend-bad');
+        } else { document.getElementById('sleepVal').innerHTML='<span class="no-data">—</span>'; }
+
+        if (d.burnout != null) {
+          const score = d.burnout;
+          document.getElementById('burnoutVal').textContent = score+'%';
+          document.getElementById('burnoutSub').textContent = 'Based on this week\'s patterns';
+          const trend = document.getElementById('burnoutTrend');
+          trend.style.display='inline-flex';
+          const diff = d.burnoutTrend;
+          trend.textContent = diff>0?`↑ ${diff}% vs yesterday`:diff<0?`↓ ${Math.abs(diff)}% vs yesterday`:'→ Stable';
+          trend.className='stat-trend '+(diff>0?'trend-bad':diff<0?'trend-good':'trend-stable');
+          if (score >= 75) document.getElementById('burnoutCard').classList.add('burnout-high');
+        } else { document.getElementById('burnoutVal').innerHTML='<span class="no-data">—</span>'; }
+
+        // Next upcoming appointment
+try {
+  const appts = await API.get('/api/user/appointments');
+  const upcoming = (appts || [])
+    .filter(a => a.status === 'ACCEPTED' && a.date >= new Date().toISOString().split('T')[0])
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (upcoming.length > 0) {
+    const next = upcoming[0];
+    document.getElementById('nextApptVal').textContent = next.doctorName;
+    document.getElementById('nextApptSub').textContent = new Date(next.date + 'T00:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric'}) + ' · ' + next.time;
+    if (next.meetingLink) {
+      document.getElementById('nextApptLink').innerHTML = `<a href="${next.meetingLink}" target="_blank" style="font-size:0.78rem;color:var(--accent);text-decoration:none;">🎥 Join Meeting →</a>`;
+      document.getElementById('nextApptLink').style.display = 'block';
+    }
+  }
+} catch(e) {}
+
+        const badge = document.getElementById('checkinStatus');
+        if (d.checkedInToday) {
+          badge.textContent='✓ Done today'; badge.style.color='#4ade80'; badge.style.borderColor='rgba(74,222,128,0.3)';
+          const btn = document.getElementById('checkinBtn');
+          btn.textContent='✓ Already logged today'; btn.style.background='#1e3a2a'; btn.style.color='#4ade80'; btn.disabled=true;
+        } else { badge.textContent='Not done today'; }
+      } catch(e) { console.error('Dashboard load error',e); }
+    }
+
+    async function loadCharts() {
+      try {
+        const logs = await API.get('/api/checkin/range?days=7');
+        if (!logs || !logs.length) {
+          document.getElementById('trendWrap').innerHTML = emptyState('📊','No data yet','Complete check-ins to see trends');
+          document.getElementById('sleepWrap').innerHTML  = emptyState('😴','No sleep data yet');
+          return;
+        }
+        const labels = logs.map(l=>new Date(l.date+'T00:00:00').toLocaleDateString('en-US',{weekday:'short'}));
+        if (trendChart) trendChart.destroy();
+        trendChart = new Chart(document.getElementById('trendChart').getContext('2d'),{
+          type:'line',
+          data:{labels,datasets:[
+            {label:'Mood',  data:logs.map(l=>l.mood),  borderColor:'#4f8ef7',backgroundColor:'rgba(79,142,247,0.08)',fill:true,tension:0.4,pointRadius:3,borderWidth:2},
+            {label:'Stress',data:logs.map(l=>l.stress),borderColor:'#c084fc',backgroundColor:'rgba(192,132,252,0.05)',fill:true,tension:0.4,pointRadius:3,borderWidth:2}
+          ]},
+          options:{...chartCfg,scales:{...chartCfg.scales,y:{...chartCfg.scales.y,max:10}}}
+        });
+        if (sleepChart) sleepChart.destroy();
+        sleepChart = new Chart(document.getElementById('sleepChart').getContext('2d'),{
+          type:'bar',
+          data:{labels,datasets:[{label:'Sleep',data:logs.map(l=>l.sleepHours),backgroundColor:'rgba(79,142,247,0.7)',borderRadius:6,borderSkipped:false}]},
+          options:{...chartCfg,plugins:{legend:{display:false}},scales:{x:{grid:{display:false},ticks:{color:'#8899b4',font:{family:'DM Sans',size:10}}},y:{...chartCfg.scales.y,max:12}}}
+        });
+      } catch(e) {
+        document.getElementById('trendWrap').innerHTML = emptyState('⚠','Could not load charts');
+      }
+    }
+
+    async function loadActivity() {
+      const feed = document.getElementById('activityFeed');
+      try {
+        const items = await API.get('/api/user/activity');
+        if (!items || !items.length) { feed.innerHTML = emptyState('🌱','No activity yet','Your check-ins and appointments will appear here'); return; }
+        const iconMap={checkin:'✓',appointment:'📅',chat:'💬'};
+        const bgMap={checkin:'rgba(45,212,191,0.12)',appointment:'rgba(192,132,252,0.12)',chat:'rgba(79,142,247,0.12)'};
+        const stColor={ACCEPTED:'#4ade80',REJECTED:'#f87171',PENDING:'#fbbf24',CANCELLED:'#fb923c',COMPLETED:'#94a3b8'};
+        feed.innerHTML = items.map(item=>{
+          const col = item.status?(stColor[item.status]||'var(--muted)'):'var(--muted)';
+          return `<div class="activity-item">
+            <div class="activity-icon" style="background:${bgMap[item.type]||'rgba(79,142,247,0.12)'};">${iconMap[item.type]||'•'}</div>
+            <div class="activity-text"><div class="activity-title">${escHtml(item.title)}</div><div class="activity-time">${escHtml(item.subtitle||'')} · ${relativeTime(item.date)}</div></div>
+            <span class="activity-badge" style="color:${col};">${escHtml(item.badge)}</span>
+          </div>`;
+        }).join('');
+      } catch(e) { feed.innerHTML = emptyState('⚠','Could not load activity'); }
+    }
+
+    async function loadNudgesMini() {
+      const el = document.getElementById('nudgesMini');
+      try {
+        const data = await API.get('/api/nudges/today');
+        const nudges = data.nudges || [];
+        if (!nudges.length) { el.innerHTML='<div style="color:var(--muted);font-size:0.85rem;">No nudges available today</div>'; return; }
+        el.innerHTML = nudges.map(n=>`
+          <div class="nudge-mini-item">
+            <div class="nudge-mini-icon">${escHtml(n.icon)}</div>
+            <div class="nudge-mini-info">
+              <div class="nudge-mini-title">${escHtml(n.title)}</div>
+              <div class="nudge-mini-desc">${escHtml(n.description)}</div>
+            </div>
+            ${n.completed
+              ? '<span class="nudge-mini-done">✓ Done</span>'
+              : `<a href="nudges.html" class="btn-nudge-start">Start</a>`}
+          </div>`).join('');
+      } catch(e) { el.innerHTML='<div style="color:var(--muted);font-size:0.85rem;">Could not load nudges</div>'; }
+    }
+
+    async function submitCheckin() {
+      const btn = document.getElementById('checkinBtn');
+      btn.textContent='Saving…'; btn.disabled=true;
+      const payload = {
+        mood:       +document.getElementById('moodSlider').value,
+        stress:     +document.getElementById('stressSlider').value,
+        sleepHours: +document.getElementById('sleepSlider').value,
+        focusLevel: +document.getElementById('focusSlider').value,
+        workHours:  +document.getElementById('workSlider').value,
+      };
+      try {
+        const res = await API.post('/api/checkin', payload);
+        const badge = document.getElementById('checkinStatus');
+        badge.textContent='✓ Done today'; badge.style.color='#4ade80'; badge.style.borderColor='rgba(74,222,128,0.3)';
+        btn.textContent='✓ Check-in logged'; btn.style.background='#1e3a2a'; btn.style.color='#4ade80'; btn.disabled=true;
+        await Promise.all([loadDashboard(), loadCharts(), loadActivity()]);
+        if (res && res.highBurnout) showCrisisModal(res.burnoutScore);
+      } catch(e) {
+        btn.textContent='Log Today\'s Check-In'; btn.disabled=false;
+        alert('Could not save check-in: '+(e.message||'Unknown error'));
+      }
+    }
+
+    function showCrisisModal(score) {
+      document.getElementById('crisisScore').textContent = score+'%';
+      document.getElementById('crisisModal').classList.add('open');
+      const dismissBtn = document.getElementById('crisisDismiss');
+      const countdown  = document.getElementById('crisisCountdown');
+      dismissBtn.style.pointerEvents='none'; dismissBtn.style.opacity='0.4';
+      let sec = 5;
+      const t = setInterval(()=>{
+        sec--;
+        if (sec<=0) {
+          clearInterval(t);
+          dismissBtn.style.pointerEvents='auto'; dismissBtn.style.opacity='1';
+          countdown.textContent='';
+        } else { countdown.textContent=`You can dismiss this in ${sec} second${sec!==1?'s':''}…`; }
+      },1000);
+    }
+
+    function closeCrisis() { document.getElementById('crisisModal').classList.remove('open'); }
+
+    // Behavior tracking
+    let typingTimes=[], lastType=0, mouseEvents=0, idleTimer;
+    document.addEventListener('keydown',()=>{const n=Date.now();if(lastType)typingTimes.push(n-lastType);lastType=n;});
+    document.addEventListener('mousemove',()=>{mouseEvents++;clearTimeout(idleTimer);idleTimer=setTimeout(sendBehavior,30000);});
+    function sendBehavior(){
+      const avg=typingTimes.length?typingTimes.reduce((a,b)=>a+b,0)/typingTimes.length:0;
+      API.post('/api/behavior',{typingSpeed:avg?60000/avg:0,mouseActivity:mouseEvents,idleTime:30}).catch(()=>{});
+      mouseEvents=0;typingTimes=[];
+    }
+    setInterval(sendBehavior,60000);
+
+    Promise.all([loadDashboard(),loadCharts(),loadActivity(),loadNudgesMini()]);
+  </script>
+</body>
+</html>

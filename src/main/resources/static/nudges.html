@@ -1,0 +1,938 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Wellness Nudges</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{
+      --bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;
+      --accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+    .page{max-width:1000px;margin:0 auto;padding:32px 24px;}
+    .page-title{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;margin-bottom:4px;}
+    .page-sub{color:var(--muted);font-size:0.9rem;margin-bottom:28px;}
+    .stats-row{display:flex;gap:16px;margin-bottom:28px;flex-wrap:wrap;}
+    .stat-pill{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 20px;display:flex;align-items:center;gap:12px;}
+    .stat-icon{font-size:1.4rem;}
+    .stat-num{font-size:1.5rem;font-weight:700;letter-spacing:-0.03em;}
+    .stat-lbl{font-size:0.78rem;color:var(--muted);}
+    .nudges-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-bottom:32px;}
+    @media(max-width:700px){.nudges-grid{grid-template-columns:1fr;}}
+    .nudge-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px;transition:all 0.2s;position:relative;overflow:hidden;}
+    .nudge-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.35);}
+    .nudge-card.done{opacity:0.65;}
+    .nudge-card.done::after{content:'✓ Completed';position:absolute;top:12px;right:14px;font-size:0.72rem;font-weight:600;color:#4ade80;background:rgba(74,222,128,0.12);border:1px solid rgba(74,222,128,0.25);border-radius:99px;padding:3px 10px;}
+    .nudge-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+    .nudge-icon{font-size:2rem;line-height:1;}
+    .dur-badge{font-size:0.72rem;font-weight:500;padding:3px 9px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+    .nudge-type{font-size:0.7rem;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+    .nudge-title{font-size:1rem;font-weight:600;letter-spacing:-0.01em;margin-bottom:6px;}
+    .nudge-desc{font-size:0.82rem;color:var(--muted);line-height:1.5;margin-bottom:18px;}
+    .btn-start{width:100%;border:none;border-radius:9px;padding:10px;font-size:0.875rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;color:#fff;}
+    .btn-start:hover{filter:brightness(1.15);transform:translateY(-1px);}
+    .btn-start:disabled{background:rgba(74,222,128,0.15)!important;color:#4ade80;cursor:not-allowed;transform:none;filter:none;}
+    .history-section{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+    .hist-title{font-size:0.95rem;font-weight:600;margin-bottom:16px;}
+    .hist-item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(42,51,71,0.5);}
+    .hist-item:last-child{border-bottom:none;}
+    .hist-dot{width:8px;height:8px;border-radius:50%;background:#4ade80;flex-shrink:0;}
+    .hist-name{font-size:0.875rem;font-weight:500;}
+    .hist-time{font-size:0.78rem;color:var(--muted);margin-left:auto;}
+
+    /* MODAL */
+    .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.82);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(10px);}
+    .modal-overlay.open{display:flex;}
+    .timer-modal{background:var(--surface);border:1px solid var(--border);border-radius:24px;padding:36px 32px 28px;width:100%;max-width:500px;text-align:center;animation:mIn 0.28s cubic-bezier(0.34,1.56,0.64,1);max-height:92vh;overflow-y:auto;}
+    @keyframes mIn{from{opacity:0;transform:scale(0.88) translateY(24px);}to{opacity:1;transform:scale(1) translateY(0);}}
+    .modal-top-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+    .modal-type-badge{font-size:0.7rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;padding:4px 12px;border-radius:99px;border:1px solid;}
+    .btn-close-modal{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:50%;width:30px;height:30px;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    .timer-icon{font-size:2.8rem;margin-bottom:10px;}
+    .timer-title{font-size:1.25rem;font-weight:600;letter-spacing:-0.02em;margin-bottom:8px;}
+    .timer-instruction{font-size:0.84rem;color:var(--muted);line-height:1.65;margin-bottom:20px;max-height:90px;overflow-y:auto;text-align:left;padding:0 4px;}
+
+    /* BREATHING CIRCLE */
+    .breath-container{display:none;flex-direction:column;align-items:center;margin-bottom:20px;}
+    .breath-outer{border-radius:50%;width:150px;height:150px;display:flex;align-items:center;justify-content:center;transition:transform 1s ease, background 1s ease;}
+    .breath-inner{width:80px;height:80px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:600;transition:all 1s ease;}
+    .breath-phase-label{font-size:1rem;font-weight:600;margin-top:12px;min-height:24px;}
+
+    /* TIMER RING */
+    .timer-ring{position:relative;width:130px;height:130px;margin:0 auto 16px;}
+    .timer-ring svg{position:absolute;top:0;left:0;transform:rotate(-90deg);}
+    .timer-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    .timer-num{font-size:1.9rem;font-weight:700;letter-spacing:-0.03em;}
+    .timer-unit{font-size:0.7rem;color:var(--muted);}
+
+    /* SOUNDSCAPE */
+    .soundscape-panel{display:none;background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:20px;}
+    .soundscape-title{font-size:0.78rem;font-weight:600;color:var(--muted);margin-bottom:12px;letter-spacing:0.06em;text-transform:uppercase;}
+    .sound-buttons{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+    .sound-btn{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:99px;padding:7px 14px;font-size:0.8rem;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+    .sound-btn:hover{border-color:var(--accent);color:var(--accent);}
+    .sound-btn.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+    .vol-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+    .vol-label{font-size:0.78rem;color:var(--muted);white-space:nowrap;}
+    .vol-slider{flex:1;accent-color:var(--accent);}
+    .audio-status{font-size:0.75rem;color:var(--teal);margin-top:8px;min-height:16px;}
+
+    /* VIDEO PANEL */
+    .video-panel{display:none;margin-bottom:20px;}
+    .video-wrapper{position:relative;border-radius:12px;overflow:hidden;border:1px solid var(--border);background:#000;}
+    .video-wrapper iframe{width:100%;height:210px;border:none;display:block;}
+    .video-fallback{display:none;padding:20px;text-align:center;}
+    .video-fallback a{color:var(--accent);text-decoration:none;font-weight:600;}
+    .video-fallback a:hover{text-decoration:underline;}
+    .video-hint{font-size:0.75rem;color:var(--muted);margin-top:8px;text-align:center;}
+
+    /* HYDRATE */
+    .hydrate-visual{display:none;margin-bottom:20px;}
+    .water-scene{display:flex;flex-direction:column;align-items:center;gap:12px;}
+    .water-cup{width:64px;height:84px;position:relative;}
+    .cup-body{width:64px;height:74px;border:3px solid #38bdf8;border-top:none;border-radius:0 0 18px 18px;position:absolute;bottom:0;overflow:hidden;}
+    .water-fill{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,#0ea5e9,#7dd3fc);border-radius:0 0 15px 15px;height:0%;transition:height 2s ease;}
+    .cup-rim{width:72px;height:7px;background:#38bdf8;border-radius:4px;position:absolute;top:0;left:-4px;}
+    .hydrate-msg{font-size:0.9rem;color:#38bdf8;font-weight:600;text-align:center;}
+
+    /* GRATITUDE */
+    .gratitude-panel{display:none;margin-bottom:20px;text-align:left;}
+    .gratitude-item{display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;}
+    .gratitude-num{font-size:1.1rem;font-weight:700;flex-shrink:0;margin-top:8px;}
+    .gratitude-input{flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;resize:none;height:52px;transition:border-color 0.2s;}
+    .gratitude-input:focus{outline:none;border-color:var(--accent);}
+    .gratitude-input::placeholder{color:var(--muted);}
+
+    /* EYE REST */
+    .eye-rest-panel{display:none;margin-bottom:20px;}
+    .eye-track{width:100%;height:48px;position:relative;overflow:hidden;}
+    .eye-dot{width:22px;height:22px;border-radius:50%;position:absolute;top:13px;left:0;}
+
+    /* JOURNAL */
+    .journal-panel{display:none;margin-bottom:20px;text-align:left;}
+    .journal-textarea{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;resize:none;height:120px;transition:border-color 0.2s;line-height:1.6;}
+    .journal-textarea:focus{outline:none;border-color:var(--accent);}
+    .journal-textarea::placeholder{color:var(--muted);}
+    .word-count{font-size:0.75rem;color:var(--muted);margin-top:6px;text-align:right;}
+
+    /* BUTTONS */
+    .btn-row{display:flex;gap:10px;justify-content:center;margin-top:4px;}
+    .btn-secondary{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:9px;padding:10px 22px;font-size:0.875rem;font-family:'DM Sans',sans-serif;cursor:pointer;}
+    .btn-secondary:hover{border-color:var(--muted);}
+    .btn-done{background:#166534;color:#4ade80;border:1px solid rgba(74,222,128,0.3);border-radius:9px;padding:10px 22px;font-size:0.875rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;display:none;}
+    .btn-done:hover{background:#15803d;}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+  </style>
+</head>
+<body>
+<script>
+  if (typeof requireAuth === 'function') requireAuth();
+  if (typeof renderNavbar === 'function') renderNavbar('nudges');
+</script>
+<div class="page">
+  <div class="page-title">Wellness Nudges</div>
+  <div class="page-sub">Daily micro-activities to restore balance. Every nudge takes under 10 minutes.</div>
+  <div class="stats-row" id="statsRow">
+    <div class="stat-pill"><div class="stat-icon">🔥</div><div><div class="stat-num" id="streakNum">—</div><div class="stat-lbl">Day Streak</div></div></div>
+    <div class="stat-pill"><div class="stat-icon">✅</div><div><div class="stat-num" id="totalNum">—</div><div class="stat-lbl">Total Completed</div></div></div>
+    <div class="stat-pill"><div class="stat-icon">📅</div><div><div class="stat-num" id="todayNum">—</div><div class="stat-lbl">Done Today</div></div></div>
+    <div class="stat-pill" style="flex:1;"><div class="stat-icon">🧠</div><div><div class="stat-num" id="burnoutBadge" style="font-size:1rem;">—</div><div class="stat-lbl">Burnout Score</div></div></div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;margin-bottom:22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+    <span style="font-size:1.2rem;">⏰</span>
+    <div style="flex:1;min-width:160px;">
+      <div style="font-weight:600;font-size:0.88rem;">Daily Reminder</div>
+      <div style="font-size:0.76rem;color:var(--muted);">Get an email nudge at your preferred time</div>
+    </div>
+    <select id="nudgeHourSelect" onchange="saveNudgeHour()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.85rem;outline:none;cursor:pointer;">
+      <option value="-1">No reminder</option>
+      <option value="6">6:00 AM</option>
+      <option value="7">7:00 AM</option>
+      <option value="8">8:00 AM</option>
+      <option value="9">9:00 AM</option>
+      <option value="10">10:00 AM</option>
+      <option value="12">12:00 PM</option>
+      <option value="14">2:00 PM</option>
+      <option value="17">5:00 PM</option>
+      <option value="19">7:00 PM</option>
+      <option value="21">9:00 PM</option>
+    </select>
+    <button id="pushBtn" onclick="requestPushPermission()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 14px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.82rem;cursor:pointer;transition:all 0.2s;">🔔 Enable Browser Alerts</button>
+    <span id="scheduleMsg" style="font-size:0.78rem;color:#4ade80;display:none;">✅ Saved</span>
+  </div>
+
+  <div class="nudges-grid" id="nudgesGrid"><div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted);">Loading nudges…</div></div>
+  <div class="history-section">
+    <div class="hist-title">Recent Completions</div>
+    <div id="histList"></div>
+  </div>
+
+  <div id="milestoneOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:3000;align-items:center;justify-content:center;backdrop-filter:blur(14px);">
+    <div style="text-align:center;padding:40px 32px;max-width:420px;animation:mIn 0.4s cubic-bezier(0.34,1.56,0.64,1);">
+      <div id="milestoneEmoji" style="font-size:5.5rem;margin-bottom:16px;line-height:1;"></div>
+      <div id="milestoneTitle" style="font-family:'Instrument Serif',serif;font-size:2.2rem;letter-spacing:-0.02em;margin-bottom:10px;color:#e2e8f0;"></div>
+      <div id="milestoneSub" style="color:#8899b4;font-size:0.95rem;line-height:1.6;margin-bottom:28px;"></div>
+      <button onclick="document.getElementById('milestoneOverlay').style.display='none'" style="background:#4f8ef7;color:#fff;border:none;border-radius:10px;padding:13px 32px;font-size:0.95rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.2s;" onmouseover="this.style.opacity=0.85" onmouseout="this.style.opacity=1">Keep Going 🚀</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="timerModal">
+  <div class="timer-modal">
+    <div class="modal-top-bar">
+      <span class="modal-type-badge" id="tTypeBadge">NUDGE</span>
+      <button class="btn-close-modal" onclick="closeTimer()">✕</button>
+    </div>
+    <div class="timer-icon" id="tIcon">🧘</div>
+    <div class="timer-title" id="tTitle">Loading…</div>
+    <div class="timer-instruction" id="tInstruction"></div>
+
+    <div class="breath-container" id="breathContainer">
+      <div class="breath-outer" id="breathOuter">
+        <div class="breath-inner" id="breathInner"></div>
+      </div>
+      <div class="breath-phase-label" id="breathPhase">Get ready…</div>
+    </div>
+
+    <div class="soundscape-panel" id="soundscapePanel">
+      <div class="soundscape-title">🎧 Live Soundscape</div>
+      <div class="sound-buttons" id="soundButtons"></div>
+      <div class="vol-row">
+        <span class="vol-label">Vol</span>
+        <input class="vol-slider" type="range" min="0" max="1" step="0.05" value="0.6" id="volSlider" oninput="setVolume(this.value)"/>
+        <span class="vol-label" id="volPct">60%</span>
+      </div>
+      <div class="audio-status" id="audioStatus"></div>
+    </div>
+
+    <div class="video-panel" id="videoPanel">
+      <div class="video-wrapper" id="videoWrapper">
+        <iframe id="videoFrame" src="" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        <div class="video-fallback" id="videoFallback">
+          <p style="color:var(--muted);font-size:0.85rem;margin-bottom:10px;">Video blocked by browser settings.<br>Watch directly on YouTube:</p>
+          <a id="videoLink" href="#" target="_blank" rel="noopener">▶ Open on YouTube →</a>
+        </div>
+      </div>
+      <div class="video-hint" id="videoHint"></div>
+    </div>
+
+    <div class="hydrate-visual" id="hydrateVisual">
+      <div class="water-scene">
+        <div class="water-cup">
+          <div class="cup-rim"></div>
+          <div class="cup-body"><div class="water-fill" id="waterFill"></div></div>
+        </div>
+        <div class="hydrate-msg" id="hydrateMsg">Go get a full glass of water…</div>
+      </div>
+    </div>
+
+    <div class="gratitude-panel" id="gratitudePanel">
+      <div class="gratitude-item"><span class="gratitude-num" style="color:#eab308;">1.</span><textarea class="gratitude-input" placeholder="Something specific that went well today…" id="grat1"></textarea></div>
+      <div class="gratitude-item"><span class="gratitude-num" style="color:#eab308;">2.</span><textarea class="gratitude-input" placeholder="A small moment you appreciated…" id="grat2"></textarea></div>
+      <div class="gratitude-item"><span class="gratitude-num" style="color:#eab308;">3.</span><textarea class="gratitude-input" placeholder="One thing you're looking forward to…" id="grat3"></textarea></div>
+    </div>
+
+    <div class="eye-rest-panel" id="eyeRestPanel">
+      <div class="eye-track" id="eyeTrack">
+        <div class="eye-dot" id="eyeDot"></div>
+      </div>
+      <p style="font-size:0.84rem;color:var(--muted);margin-top:8px;">Follow the dot with your eyes without moving your head.</p>
+    </div>
+
+    <div class="journal-panel" id="journalPanel">
+      <textarea class="journal-textarea" id="journalText" placeholder="Start writing… every thought, no editing, no judgment. Just let it flow."></textarea>
+      <div class="word-count" id="wordCount">0 words</div>
+    </div>
+
+    <div class="timer-ring" id="timerRing">
+      <svg width="130" height="130" viewBox="0 0 130 130">
+        <circle cx="65" cy="65" r="54" fill="none" stroke="#2a3347" stroke-width="5"/>
+        <circle id="progressRing" cx="65" cy="65" r="54" fill="none" stroke="#4f8ef7" stroke-width="5"
+                stroke-linecap="round" stroke-dasharray="339.3" stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-center">
+        <div class="timer-num" id="timerDisplay">—</div>
+        <div class="timer-unit">remaining</div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeTimer()">Close</button>
+      <button class="btn-done" id="btnDone" onclick="markDone()">✓ Mark as Done</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  if (typeof requireAuth === 'function') requireAuth();
+
+  let nudges = [], currentNudge = null, timerInterval = null;
+  let timeLeft = 0, totalSeconds = 0;
+  const CIRC = 339.3;
+
+  let audioCtx = null, masterGain = null;
+  let soundStopFns = [];
+
+  async function ensureAudioCtx() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      masterGain = audioCtx.createGain();
+      masterGain.gain.value = 0.6;
+      masterGain.connect(audioCtx.destination);
+    }
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+    return audioCtx;
+  }
+
+  function stopAllSound() {
+    soundStopFns.forEach(fn => { try { fn(); } catch(e){} });
+    soundStopFns = [];
+  }
+
+  function makeNoiseBuffer(ctx, seconds, type = 'brown') {
+    const len = ctx.sampleRate * seconds;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    if (type === 'brown') {
+      let last = 0;
+      for (let i = 0; i < len; i++) {
+        const w = Math.random() * 2 - 1;
+        last = (last + 0.02 * w) / 1.02;
+        data[i] = last * 4;
+      }
+    } else {
+      for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+    }
+    return buf;
+  }
+
+  function loopBuffer(ctx, buf, gainVal, dest) {
+    const g = ctx.createGain();
+    g.gain.value = gainVal;
+    g.connect(dest);
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.connect(g);
+    src.start();
+    return { src, gain: g, stop: () => { try { src.stop(); g.disconnect(); } catch(e){} } };
+  }
+
+  async function playRain() {
+    const ctx = await ensureAudioCtx();
+    const brownBuf = makeNoiseBuffer(ctx, 4, 'brown');
+    const whiteBuf = makeNoiseBuffer(ctx, 4, 'white');
+
+    const base = ctx.createBiquadFilter();
+    base.type = 'lowpass';
+    base.frequency.value = 1200;
+    const baseLoop = loopBuffer(ctx, brownBuf, 0.7, base);
+    base.connect(masterGain);
+
+    const hpf = ctx.createBiquadFilter();
+    hpf.type = 'highpass';
+    hpf.frequency.value = 4000;
+    const drizzle = loopBuffer(ctx, whiteBuf, 0.12, hpf);
+    hpf.connect(masterGain);
+
+    soundStopFns.push(() => { baseLoop.stop(); drizzle.stop(); base.disconnect(); hpf.disconnect(); });
+    setStatus('🌧️ Rain playing');
+  }
+
+  async function playForest() {
+    const ctx = await ensureAudioCtx();
+    const buf = makeNoiseBuffer(ctx, 5, 'white');
+
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.value = 500;
+    const wind = loopBuffer(ctx, buf, 0.5, lpf);
+    lpf.connect(masterGain);
+
+    let active = true;
+    let chirpTimeout = null;
+
+    function chirp() {
+      if (!active) return;
+      const osc = ctx.createOscillator();
+      const env = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = 1400 + Math.random() * 1600;
+      const now = ctx.currentTime;
+      env.gain.setValueAtTime(0, now);
+      env.gain.linearRampToValueAtTime(0.07, now + 0.04);
+      env.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(env);
+      env.connect(masterGain);
+      osc.start(now);
+      osc.stop(now + 0.25);
+
+      if (Math.random() > 0.45) {
+        setTimeout(() => {
+          if (!active) return;
+          const osc2 = ctx.createOscillator();
+          const env2 = ctx.createGain();
+          osc2.type = 'sine';
+          osc2.frequency.value = 1600 + Math.random() * 1400;
+          const t = ctx.currentTime;
+          env2.gain.setValueAtTime(0, t);
+          env2.gain.linearRampToValueAtTime(0.06, t + 0.04);
+          env2.gain.exponentialRampToValueAtTime(0.0001, t + 0.2);
+          osc2.connect(env2);
+          env2.connect(masterGain);
+          osc2.start(t);
+          osc2.stop(t + 0.25);
+        }, 100);
+      }
+      chirpTimeout = setTimeout(chirp, 1800 + Math.random() * 2800);
+    }
+
+    chirpTimeout = setTimeout(chirp, 600);
+    soundStopFns.push(() => {
+      active = false;
+      clearTimeout(chirpTimeout);
+      wind.stop();
+      lpf.disconnect();
+    });
+    setStatus('🌲 Forest playing');
+  }
+
+  async function playOcean() {
+    const ctx = await ensureAudioCtx();
+    const buf = makeNoiseBuffer(ctx, 5, 'brown');
+
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.value = 800;
+    const wave = loopBuffer(ctx, buf, 0.8, lpf);
+    lpf.connect(masterGain);
+
+    const lfo = ctx.createOscillator();
+    const lfoGain = ctx.createGain();
+    lfo.frequency.value = 0.15;
+    lfoGain.gain.value = 0.3;
+    lfo.connect(lfoGain);
+    lfoGain.connect(wave.gain.gain);
+    lfo.start();
+
+    soundStopFns.push(() => {
+      wave.stop();
+      try { lfo.stop(); } catch(e){}
+      lpf.disconnect();
+      lfoGain.disconnect();
+    });
+    setStatus('🌊 Ocean playing');
+  }
+
+  async function playSingingBowls() {
+    const ctx = await ensureAudioCtx();
+    const freqs = [174, 285, 396, 528, 639];
+    let active = true;
+    let bowlTimeout = null;
+
+    function strikeAll() {
+      if (!active) return;
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const env = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        const now = ctx.currentTime + i * 0.7;
+        env.gain.setValueAtTime(0, now);
+        env.gain.linearRampToValueAtTime(0.05, now + 0.15);
+        env.gain.setTargetAtTime(0.001, now + 0.5, 1.5);
+        osc.connect(env);
+        env.connect(masterGain);
+        osc.start(now);
+        osc.stop(now + 6);
+      });
+      if (active) bowlTimeout = setTimeout(strikeAll, freqs.length * 700 + 2500);
+    }
+
+    strikeAll();
+    soundStopFns.push(() => {
+      active = false;
+      clearTimeout(bowlTimeout);
+    });
+    setStatus('🔔 Singing bowls playing');
+  }
+
+  async function playWhiteNoise() {
+    const ctx = await ensureAudioCtx();
+    const buf = makeNoiseBuffer(ctx, 4, 'white');
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'peaking';
+    bpf.frequency.value = 800;
+    bpf.gain.value = -6;
+    const loop = loopBuffer(ctx, buf, 0.35, bpf);
+    bpf.connect(masterGain);
+    soundStopFns.push(() => { loop.stop(); bpf.disconnect(); });
+    setStatus('⬜ White noise playing');
+  }
+
+  const SOUND_CATALOG = {
+    rain:   { label: '🌧️ Rain',   fn: playRain },
+    forest: { label: '🌲 Forest', fn: playForest },
+    ocean:  { label: '🌊 Ocean',  fn: playOcean },
+    bowls:  { label: '🔔 Bowls',  fn: playSingingBowls },
+    white:  { label: '⬜ Focus',  fn: playWhiteNoise },
+  };
+
+  const HINT_MAP = { rain:'rain', forest:'forest', nature:'forest', 'singing-bowls':'bowls', silence:null };
+
+  function playSoundscape(key) {
+    stopAllSound();
+    document.querySelectorAll('.sound-btn').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+    if(SOUND_CATALOG[key]) SOUND_CATALOG[key].fn();
+  }
+
+  function setVolume(v) {
+    if (masterGain) masterGain.gain.value = parseFloat(v);
+    document.getElementById('volPct').textContent = Math.round(v * 100) + '%';
+  }
+
+  function setStatus(msg) {
+    const el = document.getElementById('audioStatus');
+    if (el) el.textContent = msg;
+  }
+
+  const VIDEO_MAP = {
+    WALK:     { id: 'zGRoD7AT7EI', hint: 'A guided mindful walking meditation.' },
+    MEDITATE: { id: 'inpok4MKVLM', hint: 'A 5-minute guided mindfulness meditation.' },
+    STRETCH:  { id: 'g_tea8ZNk5A', hint: 'Desk-friendly stretches — follow at your own pace.' },
+  };
+
+  function setupVideo(type) {
+    const v = VIDEO_MAP[type];
+    if (!v) return;
+
+    const panel = document.getElementById('videoPanel');
+    panel.style.display = 'block';
+
+    // FIXED: Uses standard youtube.com embed instead of nocookie to bypass stricter origin limits
+    const embedUrl = `https://www.youtube.com/embed/${v.id}?autoplay=1&mute=1&rel=0&modestbranding=1`;
+    const ytUrl    = `https://www.youtube.com/watch?v=${v.id}`;
+
+    const frame = document.getElementById('videoFrame');
+    frame.style.display = 'block';
+    frame.src = embedUrl;
+
+    document.getElementById('videoLink').href  = ytUrl;
+    document.getElementById('videoHint').textContent = v.hint;
+
+    document.getElementById('videoFallback').style.display = 'none';
+
+    // Fallback if the iframe fails to connect (note: cross-origin HTTP errors don't reliably trigger this, but it's good safety)
+    frame.onerror = () => {
+      frame.style.display = 'none';
+      document.getElementById('videoFallback').style.display = 'block';
+    };
+  }
+
+  const TYPE_COLORS = {
+    BREATHE:'#4f8ef7',MEDITATE:'#c084fc',WALK:'#2dd4bf',
+    HYDRATE:'#38bdf8',STRETCH:'#f97316',GRATITUDE:'#eab308',
+    SOUNDSCAPE:'#64748b',EYE_REST:'#f97316',JOURNALING:'#a855f7'
+  };
+
+  const FEATURE_LABELS = {
+    BREATHE:'🌀 Animated guide',MEDITATE:'▶ Video + Audio',WALK:'▶ Guided video',
+    HYDRATE:'💧 Visual tracker',STRETCH:'▶ Guided video',GRATITUDE:'✍ Interactive',
+    SOUNDSCAPE:'🎧 Live audio',EYE_REST:'👁 Eye tracker',JOURNALING:'📝 Brain dump'
+  };
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  function relativeTime(iso) {
+    const diff = Date.now() - new Date(iso);
+    if (diff < 60000) return 'just now';
+    if (diff < 3600000) return Math.round(diff/60000) + 'm ago';
+    if (diff < 86400000) return Math.round(diff/3600000) + 'h ago';
+    return new Date(iso).toLocaleDateString();
+  }
+
+  async function loadNudges() {
+    try {
+      if (typeof API !== 'undefined') {
+        const data = await API.get('/api/nudges/today');
+        nudges = data.nudges || [];
+        document.getElementById('burnoutBadge').textContent = (data.burnoutScore ?? '—') + '%';
+      }
+      renderNudges();
+    } catch(e) {
+      document.getElementById('nudgesGrid').innerHTML =
+        '<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted);">😔 Could not load nudges.</div>';
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      if (typeof API === 'undefined') return;
+      const data = await API.get('/api/nudges/history');
+      document.getElementById('streakNum').textContent = data.streak ?? 0;
+      document.getElementById('totalNum').textContent  = data.totalCompleted ?? 0;
+      document.getElementById('todayNum').textContent  = nudges.filter(n=>n.completed).length;
+      const hist = data.recent || [];
+      const list = document.getElementById('histList');
+      if (!hist.length) { list.innerHTML = '<div style="color:var(--muted);font-size:0.85rem;padding:8px 0;">No completions yet — start your first nudge!</div>'; return; }
+      list.innerHTML = hist.map(h=>`
+        <div class="hist-item">
+          <div class="hist-dot"></div>
+          <div class="hist-name">${escHtml(h.nudgeTitle)}</div>
+          <div class="hist-time">${relativeTime(h.completedAt)}</div>
+        </div>`).join('');
+    } catch(e) {}
+  }
+
+  function renderNudges() {
+    if (!nudges.length) {
+      document.getElementById('nudgesGrid').innerHTML='<div style="grid-column:1/-1;padding:40px;text-align:center;color:var(--muted);">🌿 No nudges today!</div>';
+      return;
+    }
+    document.getElementById('nudgesGrid').innerHTML = nudges.map((n,i)=>{
+      const color = n.color || TYPE_COLORS[n.type] || '#4f8ef7';
+      const mins = Math.round(n.durationSeconds/60);
+      const durLabel = mins<1?`${n.durationSeconds}s`:`${mins} min`;
+      return `<div class="nudge-card ${n.completed?'done':''}" style="animation:fadeUp 0.4s ease ${i*0.1}s both;">
+        <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${color};border-radius:16px 16px 0 0;"></div>
+        <div class="nudge-header">
+          <div class="nudge-icon">${escHtml(n.icon)}</div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;">
+            <span class="dur-badge">⏱ ${durLabel}</span>
+            <span style="font-size:0.68rem;color:${color};background:${color}20;padding:2px 7px;border-radius:99px;border:1px solid ${color}40;">${FEATURE_LABELS[n.type]||'⏱ Timer'}</span>
+          </div>
+        </div>
+        <div class="nudge-type" style="color:${color};">${n.type}</div>
+        <div class="nudge-title">${escHtml(n.title)}</div>
+        <div class="nudge-desc">${escHtml(n.description)}</div>
+        <button class="btn-start" ${n.completed?'disabled':''} onclick="startNudge('${n.id}')" style="${n.completed?'':'background:'+color}">
+          ${n.completed?'✓ Done for today':'▶ Start'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+
+  function startNudge(id) {
+    currentNudge = nudges.find(n=>n.id===id);
+    if (!currentNudge) return;
+
+    timeLeft = currentNudge.durationSeconds;
+    totalSeconds = currentNudge.durationSeconds;
+    const color = currentNudge.color || TYPE_COLORS[currentNudge.type] || '#4f8ef7';
+    const type  = currentNudge.type;
+
+    hideAllPanels();
+    document.getElementById('tIcon').textContent        = currentNudge.icon;
+    document.getElementById('tTitle').textContent       = currentNudge.title;
+    document.getElementById('tInstruction').textContent = currentNudge.instruction;
+    document.getElementById('progressRing').style.stroke = color;
+    document.getElementById('btnDone').style.display    = 'none';
+    document.getElementById('timerRing').style.display  = 'block';
+
+    const badge = document.getElementById('tTypeBadge');
+    badge.textContent   = type;
+    badge.style.cssText += `;background:${color}22;border-color:${color}55;color:${color}`;
+
+    if (type === 'BREATHE') {
+      setupBreathing(color);
+    } else if (type === 'SOUNDSCAPE') {
+      setupSoundscape(currentNudge.soundscapeHint);
+    } else if (type === 'HYDRATE') {
+      setupHydrate();
+    } else if (type === 'GRATITUDE') {
+      setupGratitude(color);
+    } else if (type === 'EYE_REST') {
+      setupEyeRest(color);
+    } else if (type === 'JOURNALING') {
+      setupJournal();
+    } else if (type === 'MEDITATE') {
+      setupVideo('MEDITATE');
+      setupSoundscape(currentNudge.soundscapeHint);
+    } else if (type === 'WALK') {
+      setupVideo('WALK');
+    } else if (type === 'STRETCH') {
+      setupVideo('STRETCH');
+    }
+
+    document.getElementById('timerModal').classList.add('open');
+    updateTimer();
+    startTimer();
+  }
+
+  function hideAllPanels() {
+    stopAllSound();
+    clearEyeAnim();
+    clearInterval(timerInterval);
+    document.getElementById('videoFrame').src = '';
+    document.getElementById('videoFallback').style.display = 'none';
+    ['breathContainer','soundscapePanel','videoPanel','hydrateVisual',
+     'gratitudePanel','eyeRestPanel','journalPanel'].forEach(id=>{
+      document.getElementById(id).style.display='none';
+    });
+  }
+
+  function setupBreathing(color) {
+    document.getElementById('breathContainer').style.display='flex';
+    document.getElementById('timerRing').style.display='none';
+    const outer = document.getElementById('breathOuter');
+    const inner = document.getElementById('breathInner');
+    outer.style.cssText=`width:150px;height:150px;border-radius:50%;background:${color}18;border:2.5px solid ${color}44;display:flex;align-items:center;justify-content:center;transition:transform 1s ease,background 1s ease;`;
+    inner.style.cssText=`width:82px;height:82px;border-radius:50%;background:${color}30;display:flex;align-items:center;justify-content:center;font-size:0.78rem;font-weight:600;color:${color};transition:all 1s ease;`;
+    document.getElementById('breathPhase').style.color = color;
+  }
+
+  function updateBreathGuide() {
+    if (!currentNudge || currentNudge.type !== 'BREATHE') return;
+    const color = currentNudge.color || '#4f8ef7';
+    const elapsed = totalSeconds - timeLeft;
+    const outer = document.getElementById('breathOuter');
+    const inner = document.getElementById('breathInner');
+    const phase = document.getElementById('breathPhase');
+
+    let label, scale, bg;
+    if (currentNudge.title.includes('4-7-8')) {
+      const pos = elapsed % 19;
+      if (pos < 4)       { label='Inhale'; scale=1.38; bg=color+'35'; }
+      else if (pos < 11) { label='Hold';   scale=1.38; bg=color+'2a'; }
+      else               { label='Exhale'; scale=1.0;  bg=color+'10'; }
+    } else {
+      const pos = elapsed % 16;
+      if (pos < 4)       { label='Inhale'; scale=1.38; bg=color+'35'; }
+      else if (pos < 8)  { label='Hold';   scale=1.38; bg=color+'2a'; }
+      else if (pos < 12) { label='Exhale'; scale=1.0;  bg=color+'10'; }
+      else               { label='Hold';   scale=1.0;  bg=color+'10'; }
+    }
+    outer.style.transform = `scale(${scale})`;
+    outer.style.background = bg;
+    inner.textContent = label;
+    phase.textContent = label + '…';
+  }
+
+  function setupSoundscape(hint) {
+    const panel = document.getElementById('soundscapePanel');
+    panel.style.display = 'block';
+    const autoKey = HINT_MAP[hint] || 'rain';
+    document.getElementById('soundButtons').innerHTML = Object.entries(SOUND_CATALOG).map(([k,v])=>
+      `<button class="sound-btn" data-key="${k}" onclick="playSoundscape('${k}')">${v.label}</button>`
+    ).join('');
+    playSoundscape(autoKey);
+  }
+
+  function setupHydrate() {
+    document.getElementById('hydrateVisual').style.display='block';
+    const fill = document.getElementById('waterFill');
+    fill.style.transition = 'none';
+    fill.style.height = '0%';
+    setTimeout(()=>{
+      fill.style.transition = `height ${Math.min(totalSeconds * 0.75, 45)}s ease`;
+      fill.style.height = '88%';
+    }, 400);
+  }
+
+  function setupGratitude(color) {
+    document.getElementById('gratitudePanel').style.display='block';
+    document.getElementById('timerRing').style.display='none';
+    ['grat1','grat2','grat3'].forEach(id=>{ document.getElementById(id).value=''; });
+    document.querySelectorAll('.gratitude-num').forEach(el=>el.style.color=color||'#eab308');
+  }
+
+  let eyeAnimId = null;
+  function clearEyeAnim() { if(eyeAnimId){cancelAnimationFrame(eyeAnimId);eyeAnimId=null;} }
+  function setupEyeRest(color) {
+    document.getElementById('eyeRestPanel').style.display='block';
+    const dot = document.getElementById('eyeDot');
+    dot.style.cssText=`width:22px;height:22px;border-radius:50%;background:${color||'#4f8ef7'};position:absolute;top:13px;left:0;box-shadow:0 0 12px ${color||'#4f8ef7'}55;`;
+    const track = document.getElementById('eyeTrack');
+    let start = null;
+    const maxX = track.offsetWidth - 26;
+    function animate(ts) {
+      if (!start) start = ts;
+      const t = (ts - start) / 4000;
+      const x = (Math.sin(t * Math.PI * 2) * 0.5 + 0.5) * maxX;
+      dot.style.left = x + 'px';
+      eyeAnimId = requestAnimationFrame(animate);
+    }
+    eyeAnimId = requestAnimationFrame(animate);
+  }
+
+  function setupJournal() {
+    document.getElementById('journalPanel').style.display='block';
+    document.getElementById('timerRing').style.display='none';
+    document.getElementById('journalText').value='';
+    document.getElementById('journalText').oninput=function(){
+      const w = this.value.trim().split(/\s+/).filter(Boolean).length;
+      document.getElementById('wordCount').textContent = w+' word'+(w!==1?'s':'');
+    };
+  }
+
+  function updateHydrateMsg() {
+    const pct = 1 - timeLeft / totalSeconds;
+    const msgs = ['Go get a full glass of water…','Got it? Hold it with both hands.','Take your first slow sip.','Feel the cool water. Breathe.','Finish the glass. ☺'];
+    const msg = msgs[Math.min(Math.floor(pct * msgs.length), msgs.length-1)];
+    document.getElementById('hydrateMsg').textContent = msg;
+  }
+
+  function startTimer() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(()=>{
+      timeLeft--;
+      updateTimer();
+      updateBreathGuide();
+      if (currentNudge?.type === 'HYDRATE') updateHydrateMsg();
+      if (timeLeft <= 0) {
+        clearInterval(timerInterval);
+        document.getElementById('timerDisplay').textContent = '0:00';
+        document.getElementById('progressRing').style.strokeDashoffset = CIRC;
+        document.getElementById('breathPhase').textContent = '✨ Well done!';
+        document.getElementById('btnDone').style.display = 'inline-block';
+        stopAllSound();
+      }
+    }, 1000);
+  }
+
+  function updateTimer() {
+    const m = Math.floor(timeLeft/60), s = timeLeft%60;
+    document.getElementById('timerDisplay').textContent=`${m}:${s.toString().padStart(2,'0')}`;
+    const prog = (totalSeconds-timeLeft)/totalSeconds;
+    document.getElementById('progressRing').style.strokeDashoffset = CIRC*(1-prog);
+  }
+
+  function closeTimer() {
+    clearInterval(timerInterval);
+    clearEyeAnim();
+    stopAllSound();
+    document.getElementById('videoFrame').src='';
+    document.getElementById('timerModal').classList.remove('open');
+  }
+
+  async function markDone() {
+    if (!currentNudge) return;
+    const btn = document.getElementById('btnDone');
+    btn.textContent='Saving…'; btn.disabled=true;
+    try {
+      if (typeof API !== 'undefined') {
+        const res = await API.post(`/api/nudges/${currentNudge.id}/complete`,{});
+
+        if (res && res.milestoneCelebrate) {
+          setTimeout(() => showMilestoneCelebration(res.milestoneHit, res.streak), 400);
+          showBrowserNotif('🏆 Streak Milestone!', `${res.milestoneHit}-day streak! Amazing work!`);
+        } else if (res && res.streak > 0) {
+          showBrowserNotif('🌿 Nudge Complete!', `${res.nudgeTitle} done! ${res.streak}-day streak 🔥`);
+        }
+      }
+
+      const n = nudges.find(x=>x.id===currentNudge.id);
+      if (n) n.completed=true;
+      closeTimer();
+      renderNudges();
+      await loadHistory();
+      document.getElementById('todayNum').textContent=nudges.filter(n=>n.completed).length;
+
+    } catch(e) { btn.textContent='✓ Mark as Done'; btn.disabled=false; }
+  }
+
+  function showMilestoneCelebration(days, streak) {
+    const emojis = {7:'🌟', 30:'🔥', 100:'🏆'};
+    const msgs   = {7:'One full week of daily nudges!', 30:'An entire month of consistency!', 100:'100 days — you\'re unstoppable!'};
+    document.getElementById('milestoneEmoji').textContent  = emojis[days] || '🎉';
+    document.getElementById('milestoneTitle').textContent  = `${days}-Day Streak!`;
+    document.getElementById('milestoneSub').textContent    = `${msgs[days] || 'Incredible work!'} You've completed nudges for ${streak} days in a row. Keep going!`;
+    const ov = document.getElementById('milestoneOverlay');
+    ov.style.display = 'flex';
+    launchConfetti();
+  }
+
+  function launchConfetti() {
+    const colors = ['#4f8ef7','#2dd4bf','#c084fc','#fbbf24','#4ade80','#f97316'];
+    for (let i = 0; i < 60; i++) {
+      const el = document.createElement('div');
+      const size = 6 + Math.random() * 8;
+      el.style.cssText = `position:fixed;width:${size}px;height:${size}px;border-radius:${Math.random()>0.5?'50%':'2px'};
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        left:${Math.random()*100}vw;top:-10px;z-index:4000;pointer-events:none;
+        animation:confettiFall ${1.5+Math.random()*2}s ease-in ${Math.random()*0.8}s forwards;`;
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 3500);
+    }
+  }
+
+  function showBrowserNotif(title, body) {
+    if (Notification.permission === 'granted') {
+      try { new Notification(title, { body, icon: '/favicon.ico' }); } catch(e){}
+    }
+  }
+
+  async function requestPushPermission() {
+    const btn = document.getElementById('pushBtn');
+    if (!('Notification' in window)) {
+      btn.textContent = '❌ Not supported';
+      return;
+    }
+    if (Notification.permission === 'granted') {
+      btn.textContent = '✅ Alerts On';
+      btn.style.color = '#4ade80';
+      showBrowserNotif('🌿 NeuroNudge', 'Browser alerts are already enabled!');
+      return;
+    }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      btn.textContent = '✅ Alerts On';
+      btn.style.color = '#4ade80';
+      showBrowserNotif('🌿 NeuroNudge', 'Notifications enabled! You\'ll get reminders at your nudge hour.');
+    } else {
+      btn.textContent = '🔕 Blocked';
+    }
+  }
+
+  function updatePushBtn() {
+    const btn = document.getElementById('pushBtn');
+    if (!('Notification' in window)) { btn.textContent = '❌ Not supported'; return; }
+    if (Notification.permission === 'granted') { btn.textContent = '✅ Alerts On'; btn.style.color = '#4ade80'; }
+    else if (Notification.permission === 'denied') { btn.textContent = '🔕 Blocked'; }
+  }
+
+  async function saveNudgeHour() {
+    const h = parseInt(document.getElementById('nudgeHourSelect').value);
+    try {
+      if (typeof API !== 'undefined') {
+        await API.post('/api/nudges/schedule', { nudgeHour: h });
+      }
+      const msg = document.getElementById('scheduleMsg');
+      msg.style.display = 'inline';
+      setTimeout(() => msg.style.display = 'none', 2000);
+    } catch(e) { console.error('Schedule save failed', e); }
+  }
+
+  async function loadNudgeHour() {
+    try {
+      if (typeof API === 'undefined') return;
+      const res = await API.get('/api/nudges/schedule');
+      const sel = document.getElementById('nudgeHourSelect');
+      if (sel) sel.value = res.nudgeHour ?? -1;
+    } catch(e) {}
+  }
+
+  const styleEl = document.createElement('style');
+  styleEl.textContent = `
+    @keyframes fadeUp{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:translateY(0);}}
+    @keyframes confettiFall{to{transform:translateY(105vh) rotate(720deg);opacity:0;}}
+  `;
+  document.head.appendChild(styleEl);
+
+  updatePushBtn();
+  Promise.all([loadNudges(), loadHistory(), loadNudgeHour()]).then(()=>{
+    document.getElementById('todayNum').textContent=nudges.filter(n=>n.completed).length;
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>NeuroNudge — Chat Companion</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+  <script src="navbar.js"></script>
+  <script src="api.js"></script>
+  <style>
+    :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+    *{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;}
+    .chat-layout{flex:1;display:grid;grid-template-columns:260px 1fr;min-height:0;}
+    .sidebar{background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:20px;overflow-y:auto;}
+    .sidebar-title{font-size:0.8rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.08em;margin-bottom:14px;}
+    .session-item{padding:10px 12px;border-radius:9px;cursor:pointer;margin-bottom:4px;transition:all 0.15s;border:1px solid transparent;}
+    .session-item:hover{background:var(--surface2);border-color:var(--border);}
+    .session-item.active{background:rgba(79,142,247,0.1);border-color:rgba(79,142,247,0.2);}
+    .session-name{font-size:0.875rem;font-weight:500;margin-bottom:2px;}
+    .session-preview{font-size:0.78rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .new-chat-btn{margin-top:auto;padding-top:16px;background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px;font-size:0.85rem;font-weight:600;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all 0.2s;}
+    .new-chat-btn:hover{background:#3d7ef5;}
+    .chat-main{display:flex;flex-direction:column;min-height:0;}
+    .chat-header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:14px;background:var(--surface);}
+    .ai-avatar{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--accent),var(--teal));display:flex;align-items:center;justify-content:center;font-size:1.1rem;}
+    .ai-name{font-weight:600;font-size:0.95rem;}
+    .ai-status{font-size:0.78rem;color:#4ade80;display:flex;align-items:center;gap:5px;}
+    .status-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;animation:pulseDot 2s ease-in-out infinite;}
+    @keyframes pulseDot{0%,100%{opacity:1;}50%{opacity:0.4;}}
+    .messages{flex:1;overflow-y:auto;padding:24px;display:flex;flex-direction:column;gap:16px;scroll-behavior:smooth;}
+    .messages::-webkit-scrollbar{width:5px;}
+    .messages::-webkit-scrollbar-thumb{background:var(--border);border-radius:99px;}
+    .msg{display:flex;gap:12px;max-width:75%;animation:fadeIn 0.3s ease;}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+    .msg.user{align-self:flex-end;flex-direction:row-reverse;}
+    .msg-avatar{width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:0.8rem;font-weight:700;flex-shrink:0;margin-top:2px;}
+    .msg-avatar.ai{background:linear-gradient(135deg,var(--accent),var(--teal));color:#fff;}
+    .msg-avatar.user{background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+    .msg-bubble{padding:12px 16px;border-radius:14px;font-size:0.9rem;line-height:1.6;}
+    .msg.ai .msg-bubble{background:var(--surface);border:1px solid var(--border);border-top-left-radius:4px;color:var(--text);}
+    .msg.user .msg-bubble{background:var(--accent);color:#fff;border-top-right-radius:4px;}
+    .msg-time{font-size:0.72rem;color:var(--muted);margin-top:4px;padding:0 4px;}
+    .msg.user .msg-time{text-align:right;}
+    .typing-indicator{display:flex;align-items:center;gap:5px;padding:14px 16px;background:var(--surface);border:1px solid var(--border);border-radius:14px;border-top-left-radius:4px;width:fit-content;}
+    .typing-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:typingDot 1.4s ease-in-out infinite;}
+    .typing-dot:nth-child(2){animation-delay:0.2s;}
+    .typing-dot:nth-child(3){animation-delay:0.4s;}
+    @keyframes typingDot{0%,60%,100%{transform:translateY(0);}30%{transform:translateY(-6px);}}
+    .input-area{padding:16px 24px;border-top:1px solid var(--border);background:var(--surface);}
+    .input-row{display:flex;gap:10px;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 14px;align-items:flex-end;transition:border-color 0.2s;}
+    .input-row:focus-within{border-color:rgba(79,142,247,0.4);}
+    textarea{flex:1;background:transparent;border:none;resize:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.92rem;line-height:1.5;outline:none;max-height:120px;padding:0;}
+    textarea::placeholder{color:#4a5568;}
+    .send-btn{width:34px;height:34px;border-radius:8px;background:var(--accent);border:none;color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.2s;flex-shrink:0;}
+    .send-btn:hover{background:#3d7ef5;transform:scale(1.05);}
+    .send-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+    .quick-prompts{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;}
+    .quick-btn{background:var(--surface2);border:1px solid var(--border);border-radius:99px;padding:5px 12px;font-size:0.78rem;color:var(--muted);cursor:pointer;transition:all 0.15s;font-family:'DM Sans',sans-serif;}
+    .quick-btn:hover{color:var(--text);border-color:rgba(79,142,247,0.3);}
+    .history-divider{text-align:center;font-size:0.72rem;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:8px;}
+  </style>
+</head>
+<body>
+  <script>requireAuth(); renderNavbar('chat');</script>
+  <div class="chat-layout">
+    <div class="sidebar">
+      <div class="sidebar-title">Conversations</div>
+      <div id="sessionList"><div style="color:var(--muted);font-size:0.82rem;padding:8px 0;">Loading…</div></div>
+      <button class="new-chat-btn" onclick="newChat()" style="margin-top:16px;">+ New Conversation</button>
+    </div>
+    <div class="chat-main">
+      <div class="chat-header">
+        <div class="ai-avatar">🧠</div>
+        <div>
+          <div class="ai-name">Nora — Your AI Companion</div>
+          <div class="ai-status"><span class="status-dot"></span> Ready to listen</div>
+        </div>
+      </div>
+      <div class="messages" id="messages">
+        <div style="text-align:center;color:var(--muted);padding:40px 0;font-size:0.85rem;">Loading conversation history…</div>
+      </div>
+      <div class="input-area">
+        <div class="quick-prompts">
+          <button class="quick-btn" onclick="sendQuick('I am feeling stressed about work')">😰 Work stress</button>
+          <button class="quick-btn" onclick="sendQuick('I have not been sleeping well')">😴 Sleep issues</button>
+          <button class="quick-btn" onclick="sendQuick('I am feeling anxious today')">😟 Anxiety</button>
+          <button class="quick-btn" onclick="sendQuick('I am feeling better today')">😊 Doing well</button>
+        </div>
+        <div class="input-row">
+          <textarea id="chatInput" placeholder="Share what's on your mind…" rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+          <button class="send-btn" id="sendBtn" onclick="sendMessage()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    requireAuth();
+    const userName = (sessionStorage.getItem('name') || 'You').split(' ')[0];
+    const userInitials = (sessionStorage.getItem('name') || 'U').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+    let currentSessionId = null;
+    let chatHistory = [];
+    let allSessions = [];
+
+    function autoResize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+    function handleKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }
+    function sendQuick(msg) { document.getElementById('chatInput').value = msg; sendMessage(); }
+
+    function fmtTime(ts) {
+      if (!ts) return '';
+      return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function addMessage(role, content, timestamp) {
+      const msgs = document.getElementById('messages');
+      const isUser = role === 'user' || role === 'USER';
+      const div = document.createElement('div');
+      div.className = `msg ${isUser ? 'user' : 'ai'}`;
+      div.innerHTML = `
+        <div class="msg-avatar ${isUser ? 'user' : 'ai'}">${isUser ? userInitials : 'N'}</div>
+        <div>
+          <div class="msg-bubble">${escHtml(content)}</div>
+          <div class="msg-time">${fmtTime(timestamp) || 'Now'}</div>
+        </div>`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    }
+
+    function showTyping() {
+      const msgs = document.getElementById('messages');
+      const div = document.createElement('div');
+      div.className = 'msg ai'; div.id = 'typingIndicator';
+      div.innerHTML = `<div class="msg-avatar ai">N</div><div class="typing-indicator"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>`;
+      msgs.appendChild(div);
+      msgs.scrollTop = msgs.scrollHeight;
+    }
+    function removeTyping() { const t = document.getElementById('typingIndicator'); if (t) t.remove(); }
+
+    // ── Load chat history from DB ─────────────────────────────────────────
+    async function loadHistory() {
+      try {
+        const messages = await API.get('/api/chat/history');
+        const msgContainer = document.getElementById('messages');
+        msgContainer.innerHTML = '';
+
+        if (!messages || messages.length === 0) {
+          addMessage('ai', "Hi there 👋 I'm Nora, your personal wellness companion. I'm here to listen, support you, and help you navigate whatever you're experiencing. How are you feeling today?", new Date());
+          chatHistory = [];
+          buildSessionList([]);
+          return;
+        }
+
+        // Group messages into sessions
+        const sessMap = {};
+        messages.forEach(m => {
+          if (!sessMap[m.sessionId]) sessMap[m.sessionId] = [];
+          sessMap[m.sessionId].push(m);
+        });
+        allSessions = Object.entries(sessMap).map(([sid, msgs]) => ({
+          id: sid,
+          preview: msgs[msgs.length - 1]?.message?.slice(0, 40) || '',
+          timestamp: msgs[msgs.length - 1]?.timestamp
+        })).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        buildSessionList(allSessions);
+
+        // Show the most recent session by default
+        if (allSessions.length > 0) {
+          currentSessionId = allSessions[0].id;
+          const sessionMsgs = sessMap[currentSessionId];
+          if (sessionMsgs.length > 0) {
+            msgContainer.innerHTML = `<div class="history-divider">Previous conversation — ${relativeTime(sessionMsgs[0].timestamp)}</div>`;
+          }
+          sessionMsgs.forEach(m => {
+            addMessage(m.sender === 'USER' ? 'user' : 'ai', m.message, m.timestamp);
+            chatHistory.push({ role: m.sender === 'USER' ? 'user' : 'assistant', content: m.message });
+          });
+        }
+      } catch (e) {
+        const msgContainer = document.getElementById('messages');
+        msgContainer.innerHTML = '';
+        addMessage('ai', "Hi there 👋 I'm Nora, your personal wellness companion. How are you feeling today?", new Date());
+        buildSessionList([]);
+      }
+    }
+
+    function buildSessionList(sessions) {
+      const list = document.getElementById('sessionList');
+      if (!sessions || sessions.length === 0) {
+        list.innerHTML = `<div style="color:var(--muted);font-size:0.82rem;padding:4px 0;">No previous conversations</div>`;
+        return;
+      }
+      list.innerHTML = sessions.map((s, i) => `
+        <div class="session-item ${i === 0 ? 'active' : ''}" onclick="loadSession('${s.id}', this)">
+          <div class="session-name">${relativeTime(s.timestamp)}</div>
+          <div class="session-preview">${s.preview}…</div>
+        </div>`).join('');
+    }
+
+    async function loadSession(sessionId, el) {
+      document.querySelectorAll('.session-item').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      currentSessionId = sessionId;
+      try {
+        const messages = await API.get(`/api/chat/history?sessionId=${sessionId}`);
+        const msgContainer = document.getElementById('messages');
+        msgContainer.innerHTML = '';
+        chatHistory = [];
+        if (messages && messages.length > 0) {
+          msgContainer.innerHTML = `<div class="history-divider">Conversation from ${relativeTime(messages[0].timestamp)}</div>`;
+          messages.forEach(m => {
+            addMessage(m.sender === 'USER' ? 'user' : 'ai', m.message, m.timestamp);
+            chatHistory.push({ role: m.sender === 'USER' ? 'user' : 'assistant', content: m.message });
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chatInput');
+      const msg = input.value.trim();
+      if (!msg) return;
+      const btn = document.getElementById('sendBtn');
+      btn.disabled = true; input.value = ''; input.style.height = 'auto';
+      addMessage('user', msg, new Date());
+      chatHistory.push({ role: 'user', content: msg });
+      showTyping();
+      try {
+        const data = await API.post('/api/chat', {
+          message: msg,
+          sessionId: currentSessionId,
+          history: chatHistory.slice(-10)
+        });
+        removeTyping();
+        const reply = data.response || data.message || 'I hear you. Would you like to tell me more?';
+        addMessage('ai', reply, data.timestamp || new Date());
+        chatHistory.push({ role: 'assistant', content: reply });
+        if (data.sessionId && !currentSessionId) {
+          currentSessionId = data.sessionId;
+        }
+        // Refresh session list
+<!--      1  await loadHistory();-->
+      } catch (e) {
+        removeTyping();
+        addMessage('ai', "I'm having trouble connecting right now. Please try again in a moment.", new Date());
+      }
+      btn.disabled = false; input.focus();
+    }
+
+    function newChat() {
+      currentSessionId = null;
+      chatHistory = [];
+      const msgContainer = document.getElementById('messages');
+      msgContainer.innerHTML = '';
+      addMessage('ai', "Starting a fresh conversation. What's on your mind today?", new Date());
+      document.querySelectorAll('.session-item').forEach(s => s.classList.remove('active'));
+    }
+
+    function updateSidebarSession(lastMessage) {
+  const list = document.getElementById('sessionList');
+  if (!list) return;
+  // Check if today's session already exists in the sidebar
+  const existing = list.querySelector('.session-item.active');
+  if (existing) {
+    const preview = existing.querySelector('.session-preview');
+    if (preview) preview.textContent = lastMessage.slice(0, 40) + '…';
+  } else {
+    // Add new session item at top of sidebar
+    const div = document.createElement('div');
+    div.className = 'session-item active';
+    div.innerHTML = `<div class="session-name">Just now</div><div class="session-preview">${lastMessage.slice(0, 40)}…</div>`;
+    div.onclick = function() { /* current session already loaded */ };
+    list.insertBefore(div, list.firstChild);
+  }
+}
+
+    // ── Init ──────────────────────────────────────────────────────────────
+    loadHistory();
+  </script>
+</body>
+</html>

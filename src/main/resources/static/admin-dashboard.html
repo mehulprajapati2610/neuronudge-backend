@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>NeuroNudge — Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="navbar.js"></script>
+    <script src="api.js"></script>
+    <style>
+        :root{--bg:#0f1117;--surface:#161b27;--surface2:#1e2535;--border:#2a3347;--accent:#4f8ef7;--teal:#2dd4bf;--text:#e2e8f0;--muted:#8899b4;}
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+        .page{max-width:1200px;margin:0 auto;padding:32px 24px;}
+        .page-title{font-family:'Instrument Serif',serif;font-size:1.9rem;letter-spacing:-0.02em;margin-bottom:4px;}
+        .page-sub{color:var(--muted);font-size:0.9rem;margin-bottom:28px;}
+        .stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:28px;}
+        .stat-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px;}
+        .stat-label{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:8px;}
+        .stat-value{font-size:2rem;font-weight:700;letter-spacing:-0.03em;}
+        .tabs{display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;}
+        .tab{padding:8px 18px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:0.85rem;font-weight:500;transition:all 0.2s;}
+        .tab.active{background:var(--accent);border-color:var(--accent);color:#fff;}
+        .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+        .users-grid{display:grid;grid-template-columns:1.5fr 2fr 0.8fr 0.8fr 1.2fr;gap:0;align-items:center;}
+        .appts-grid{display:grid;grid-template-columns:1.5fr 1.5fr 1fr 0.8fr 1fr;gap:0;align-items:center;}
+        .nudges-grid{display:grid;grid-template-columns:2fr 1.2fr 0.8fr 0.8fr 1.2fr;gap:0;align-items:center;}
+        .t-header{background:var(--surface2);border-bottom:1px solid var(--border);padding:11px 18px;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);font-weight:500;}
+        .t-row{border-bottom:1px solid rgba(42,51,71,0.4);padding:12px 18px;font-size:0.85rem;transition:background 0.15s;}
+        .t-row:hover{background:rgba(42,51,71,0.3);}
+        .t-row:last-child{border-bottom:none;}
+        .t-cell{padding:0 8px 0 0;}
+        .badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:0.72rem;font-weight:600;}
+        .badge-USER{background:rgba(79,142,247,0.12);color:#4f8ef7;border:1px solid rgba(79,142,247,0.2);}
+        .badge-DOCTOR{background:rgba(45,212,191,0.12);color:#2dd4bf;border:1px solid rgba(45,212,191,0.2);}
+        .badge-active{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+        .badge-inactive{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);}
+        .badge-PENDING{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+        .badge-ACCEPTED{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+        .badge-COMPLETED{background:rgba(100,116,139,0.15);color:#94a3b8;border:1px solid rgba(100,116,139,0.2);}
+        .badge-REJECTED{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);}
+        .badge-CANCELLED{background:rgba(251,146,60,0.1);color:#fb923c;border:1px solid rgba(251,146,60,0.2);}
+        .btn-sm{border:none;border-radius:6px;padding:4px 10px;font-size:0.73rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all 0.15s;margin-right:4px;}
+        .btn-deactivate{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+        .btn-deactivate:hover{background:rgba(234,179,8,0.2);}
+        .btn-activate{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+        .btn-activate:hover{background:rgba(74,222,128,0.2);}
+        .btn-danger{background:rgba(239,68,68,0.1);color:#f87171;border:1px solid rgba(239,68,68,0.2);}
+        .btn-danger:hover{background:rgba(239,68,68,0.2);}
+        .btn-enable{background:rgba(74,222,128,0.1);color:#4ade80;border:1px solid rgba(74,222,128,0.2);}
+        .btn-enable:hover{background:rgba(74,222,128,0.2);}
+        .btn-disable{background:rgba(234,179,8,0.1);color:#fbbf24;border:1px solid rgba(234,179,8,0.2);}
+        .btn-disable:hover{background:rgba(234,179,8,0.2);}
+        .search-box{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:9px 14px;display:flex;align-items:center;gap:8px;margin-bottom:14px;max-width:340px;}
+        .search-box input{background:none;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;width:100%;}
+        .search-box input::placeholder{color:#4a5568;}
+        .section{display:none;}
+        .section.active{display:block;}
+
+        /* Create Nudge Form */
+        .create-nudge-panel{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;margin-bottom:20px;}
+        .create-nudge-panel h3{font-size:1rem;font-weight:600;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+        .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+        .form-field{display:flex;flex-direction:column;gap:5px;}
+        .form-field.full{grid-column:1/-1;}
+        .form-field label{font-size:0.75rem;color:var(--muted);font-weight:500;text-transform:uppercase;letter-spacing:0.05em;}
+        .form-field input,.form-field select,.form-field textarea{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.875rem;outline:none;transition:border 0.2s;}
+        .form-field input:focus,.form-field select:focus,.form-field textarea:focus{border-color:var(--accent);}
+        .form-field select option{background:#1e2535;}
+        .form-field textarea{resize:vertical;min-height:70px;}
+        .btn-primary{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 20px;font-size:0.875rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.2s;}
+        .btn-primary:hover{opacity:0.85;}
+
+        /* Analytics */
+        .analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+        .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+        .chart-title{font-size:0.95rem;font-weight:600;margin-bottom:14px;}
+        .chart-card .chart-wrap{position:relative;height:220px;width:100%;}
+        @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.4;}}
+    </style>
+</head>
+<body>
+<script>requireAuth(); renderNavbar('dashboard');</script>
+<div class="page">
+    <div class="page-title">Admin Panel</div>
+    <div class="page-sub">Platform overview — manage users, appointments, nudges and analytics</div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value" id="sUsers" style="color:#4f8ef7;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Doctors</div><div class="stat-value" id="sDoctors" style="color:#2dd4bf;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Appointments</div><div class="stat-value" id="sAppts" style="color:#c084fc;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Pending</div><div class="stat-value" id="sPending" style="color:#fbbf24;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Assessments</div><div class="stat-value" id="sAssess" style="color:#4ade80;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Reports</div><div class="stat-value" id="sReports" style="color:#fb923c;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Nudges</div><div class="stat-value" id="sNudges" style="color:#38bdf8;">—</div></div>
+        <div class="stat-card"><div class="stat-label">Completions</div><div class="stat-value" id="sCompletions" style="color:#a78bfa;">—</div></div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('users',this)">👥 Users</div>
+        <div class="tab" onclick="switchTab('appointments',this)">📅 Appointments</div>
+        <div class="tab" onclick="switchTab('nudges',this)">🌿 Nudges</div>
+        <div class="tab" onclick="switchTab('analytics',this)">📊 Analytics</div>
+    </div>
+
+    <!-- Users -->
+    <div class="section active" id="sec-users">
+        <div class="search-box">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4a5568" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" placeholder="Search by name or email…" oninput="filterUsers(this.value)"/>
+        </div>
+        <div class="card">
+            <div class="users-grid t-header">
+                <div class="t-cell">Name</div>
+                <div class="t-cell">Email</div>
+                <div class="t-cell">Role</div>
+                <div class="t-cell">Status</div>
+                <div class="t-cell">Actions</div>
+            </div>
+            <div id="usersList"></div>
+        </div>
+    </div>
+
+    <!-- Appointments -->
+    <div class="section" id="sec-appointments">
+        <div class="card">
+            <div class="appts-grid t-header">
+                <div class="t-cell">Patient</div>
+                <div class="t-cell">Doctor</div>
+                <div class="t-cell">Date</div>
+                <div class="t-cell">Time</div>
+                <div class="t-cell">Status</div>
+            </div>
+            <div id="apptsList"></div>
+        </div>
+    </div>
+
+    <!-- Nudges -->
+    <div class="section" id="sec-nudges">
+        <!-- Create Nudge Form -->
+        <div class="create-nudge-panel">
+            <h3>➕ Create New Nudge</h3>
+            <div class="form-grid">
+                <div class="form-field">
+                    <label>Title</label>
+                    <input type="text" id="nTitle" placeholder="e.g. Box Breathing"/>
+                </div>
+                <div class="form-field">
+                    <label>Type</label>
+                    <select id="nType">
+                        <option value="BREATHE">BREATHE</option>
+                        <option value="MEDITATE">MEDITATE</option>
+                        <option value="WALK">WALK</option>
+                        <option value="HYDRATE">HYDRATE</option>
+                        <option value="STRETCH">STRETCH</option>
+                        <option value="GRATITUDE">GRATITUDE</option>
+                        <option value="SOUNDSCAPE">SOUNDSCAPE</option>
+                        <option value="EYE_REST">EYE_REST</option>
+                        <option value="JOURNALING">JOURNALING</option>
+                    </select>
+                </div>
+                <div class="form-field">
+                    <label>Icon (emoji)</label>
+                    <input type="text" id="nIcon" placeholder="🌿"/>
+                </div>
+                <div class="form-field">
+                    <label>Color (hex)</label>
+                    <input type="text" id="nColor" placeholder="#4f8ef7"/>
+                </div>
+                <div class="form-field">
+                    <label>Duration (seconds)</label>
+                    <input type="number" id="nDuration" placeholder="300" min="10"/>
+                </div>
+                <div class="form-field">
+                    <label>Soundscape Hint</label>
+                    <input type="text" id="nSoundscape" placeholder="rain, forest, silence…"/>
+                </div>
+                <div class="form-field">
+                    <label>Min Burnout (0-100)</label>
+                    <input type="number" id="nMinBurnout" placeholder="0" min="0" max="100"/>
+                </div>
+                <div class="form-field">
+                    <label>Max Burnout (0-100)</label>
+                    <input type="number" id="nMaxBurnout" placeholder="100" min="0" max="100"/>
+                </div>
+                <div class="form-field full">
+                    <label>Short Description</label>
+                    <input type="text" id="nDescription" placeholder="One-line benefit summary"/>
+                </div>
+                <div class="form-field full">
+                    <label>Full Instruction (shown during activity)</label>
+                    <textarea id="nInstruction" placeholder="Step-by-step guided instructions…"></textarea>
+                </div>
+            </div>
+            <div style="margin-top:14px;display:flex;align-items:center;gap:12px;">
+                <button class="btn-primary" onclick="createNudge()">✅ Create Nudge</button>
+                <span id="createMsg" style="font-size:0.82rem;color:var(--muted);"></span>
+            </div>
+        </div>
+
+        <!-- Nudge List -->
+        <div class="card">
+            <div class="nudges-grid t-header">
+                <div class="t-cell">Title</div>
+                <div class="t-cell">Type</div>
+                <div class="t-cell">Duration</div>
+                <div class="t-cell">Status</div>
+                <div class="t-cell">Actions</div>
+            </div>
+            <div id="nudgesList"></div>
+        </div>
+    </div>
+
+    <!-- Analytics -->
+    <div class="section" id="sec-analytics">
+        <div class="analytics-grid">
+            <div class="chart-card">
+                <div class="chart-title">Completions by Nudge Type</div>
+                <div class="chart-wrap"><canvas id="typeChart"></canvas></div>
+            </div>
+            <div class="chart-card">
+                <div class="chart-title">Daily Completions (Last 14 Days)</div>
+                <div class="chart-wrap"><canvas id="dailyChart"></canvas></div>
+            </div>
+        </div>
+        <div class="chart-card">
+            <div class="chart-title">Top Nudges by Completions</div>
+            <div id="topNudgesList" style="margin-top:10px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allUsers = [];
+    let analyticsCharts = {};
+
+    function switchTab(name, el) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      el.classList.add('active');
+      document.getElementById('sec-' + name).classList.add('active');
+      if (name === 'appointments') loadAppointments();
+      if (name === 'nudges') loadNudges();
+      if (name === 'analytics') loadAnalytics();
+    }
+
+    async function loadStats() {
+      try {
+        const s = await API.get('/api/admin/stats');
+        document.getElementById('sUsers').textContent       = s.totalUsers;
+        document.getElementById('sDoctors').textContent     = s.totalDoctors;
+        document.getElementById('sAppts').textContent       = s.totalAppts;
+        document.getElementById('sPending').textContent     = s.pendingAppts;
+        document.getElementById('sAssess').textContent      = s.totalAssess;
+        document.getElementById('sReports').textContent     = s.totalReports;
+        document.getElementById('sNudges').textContent      = s.totalNudges;
+        document.getElementById('sCompletions').textContent = s.totalCompletions || '—';
+      } catch(e) { console.error('Stats error', e); }
+    }
+
+    async function loadUsers() {
+      const container = document.getElementById('usersList');
+      container.innerHTML = `<div style="padding:20px;">${skeleton(5)}</div>`;
+      try {
+        allUsers = await API.get('/api/admin/users') || [];
+        renderUsers(allUsers);
+      } catch(e) {
+        container.innerHTML = `<div style="padding:20px;color:var(--muted);">Could not load users: ${e.message}</div>`;
+      }
+    }
+
+    function filterUsers(q) {
+      q = q.toLowerCase();
+      renderUsers(q ? allUsers.filter(u =>
+        u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q)) : allUsers);
+    }
+
+    function renderUsers(list) {
+      const container = document.getElementById('usersList');
+      if (!list.length) {
+        container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">No users found</div>`;
+        return;
+      }
+      container.innerHTML = list.map(u => `
+        <div class="users-grid t-row">
+          <div class="t-cell" style="font-weight:500;">${esc(u.name)}</div>
+          <div class="t-cell" style="color:var(--muted);font-size:0.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(u.email)}</div>
+          <div class="t-cell"><span class="badge badge-${u.role}">${u.role}</span></div>
+          <div class="t-cell"><span class="badge ${u.active ? 'badge-active' : 'badge-inactive'}">${u.active ? 'Active' : 'Inactive'}</span></div>
+          <div class="t-cell">
+            <button class="btn-sm ${u.active ? 'btn-deactivate' : 'btn-activate'}" onclick="toggleUser('${u.id}')">${u.active ? 'Deactivate' : 'Activate'}</button>
+            <button class="btn-sm btn-danger" onclick="confirmDelete('${u.id}','${esc(u.name)}')">Delete</button>
+          </div>
+        </div>`).join('');
+    }
+
+    async function toggleUser(id) {
+      try {
+        const res = await API.post('/api/admin/users/' + id + '/toggle', {});
+        const u = allUsers.find(u => u.id === id);
+        if (u) u.active = res.active;
+        renderUsers(allUsers);
+        loadStats();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function confirmDelete(id, name) {
+      if (!confirm('Deactivate "' + name + '"? This will block their login.')) return;
+      try {
+        await API.post('/api/admin/users/' + id + '/toggle', {});
+        const u = allUsers.find(u => u.id === id);
+        if (u) u.active = false;
+        renderUsers(allUsers);
+        loadStats();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function loadAppointments() {
+      const container = document.getElementById('apptsList');
+      container.innerHTML = `<div style="padding:20px;">${skeleton(5)}</div>`;
+      try {
+        const appts = await API.get('/api/admin/appointments') || [];
+        if (!appts.length) {
+          container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">No appointments</div>`;
+          return;
+        }
+        container.innerHTML = appts.map(a => `
+          <div class="appts-grid t-row">
+            <div class="t-cell" style="font-weight:500;">${esc(a.patientName)}</div>
+            <div class="t-cell" style="color:var(--muted);">${esc(a.doctorName)}</div>
+            <div class="t-cell" style="font-size:0.82rem;">${a.date || '—'}</div>
+            <div class="t-cell" style="font-size:0.82rem;">${a.time || '—'}</div>
+            <div class="t-cell"><span class="badge badge-${a.status}">${a.status}</span></div>
+          </div>`).join('');
+      } catch(e) {
+        container.innerHTML = `<div style="padding:20px;color:var(--muted);">Could not load: ${e.message}</div>`;
+      }
+    }
+
+    async function loadNudges() {
+      const container = document.getElementById('nudgesList');
+      container.innerHTML = `<div style="padding:20px;">${skeleton(5)}</div>`;
+      try {
+        const nudges = await API.get('/api/admin/nudges') || [];
+        if (!nudges.length) {
+          container.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);">No nudges</div>`;
+          return;
+        }
+        container.innerHTML = nudges.map(n => `
+          <div class="nudges-grid t-row">
+            <div class="t-cell" style="font-weight:500;">${n.icon || ''} ${esc(n.title)}</div>
+            <div class="t-cell"><span class="badge" style="background:rgba(79,142,247,0.1);color:#4f8ef7;border:1px solid rgba(79,142,247,0.2);font-size:0.7rem;">${n.type}</span></div>
+            <div class="t-cell" style="color:var(--muted);font-size:0.82rem;">${Math.round(n.durationSeconds/60)}m</div>
+            <div class="t-cell"><span class="badge ${n.active ? 'badge-active' : 'badge-inactive'}">${n.active ? 'Active' : 'Off'}</span></div>
+            <div class="t-cell">
+              <button class="btn-sm ${n.active ? 'btn-disable' : 'btn-enable'}" onclick="toggleNudge('${n.id}')">${n.active ? 'Disable' : 'Enable'}</button>
+              <button class="btn-sm btn-danger" onclick="deleteNudge('${n.id}','${esc(n.title)}')">Delete</button>
+            </div>
+          </div>`).join('');
+      } catch(e) {
+        container.innerHTML = `<div style="padding:20px;color:var(--muted);">Could not load: ${e.message}</div>`;
+      }
+    }
+
+    async function toggleNudge(id) {
+      try {
+        await API.post('/api/admin/nudges/' + id + '/toggle', {});
+        loadNudges();
+        loadStats();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function deleteNudge(id, title) {
+      if (!confirm(`Delete nudge "${title}"? This cannot be undone.`)) return;
+      try {
+        await API.delete('/api/admin/nudges/' + id);
+        loadNudges();
+        loadStats();
+      } catch(e) { alert('Error: ' + e.message); }
+    }
+
+    async function createNudge() {
+      const title       = document.getElementById('nTitle').value.trim();
+      const type        = document.getElementById('nType').value;
+      const icon        = document.getElementById('nIcon').value.trim();
+      const color       = document.getElementById('nColor').value.trim();
+      const duration    = parseInt(document.getElementById('nDuration').value) || 300;
+      const soundscape  = document.getElementById('nSoundscape').value.trim();
+      const minBurnout  = parseInt(document.getElementById('nMinBurnout').value) || 0;
+      const maxBurnout  = parseInt(document.getElementById('nMaxBurnout').value) || 100;
+      const description = document.getElementById('nDescription').value.trim();
+      const instruction = document.getElementById('nInstruction').value.trim();
+      const msg         = document.getElementById('createMsg');
+
+      if (!title || !description || !instruction) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Title, description, and instruction are required.';
+        return;
+      }
+
+      try {
+        msg.style.color = 'var(--muted)';
+        msg.textContent = 'Creating…';
+        await API.post('/api/admin/nudges', { title, type, icon, color,
+          durationSeconds: duration, soundscapeHint: soundscape,
+          minBurnout, maxBurnout, description, instruction, active: true });
+        msg.style.color = '#4ade80';
+        msg.textContent = '✅ Nudge created!';
+        ['nTitle','nIcon','nColor','nDuration','nSoundscape','nMinBurnout','nMaxBurnout','nDescription','nInstruction']
+          .forEach(id => document.getElementById(id).value = '');
+        document.getElementById('nMinBurnout').value = '';
+        document.getElementById('nMaxBurnout').value = '';
+        loadNudges();
+        loadStats();
+        setTimeout(() => msg.textContent = '', 3000);
+      } catch(e) {
+        msg.style.color = '#f87171';
+        msg.textContent = 'Error: ' + e.message;
+      }
+    }
+
+    async function loadAnalytics() {
+      try {
+        const data = await API.get('/api/admin/nudge-analytics');
+
+        // Type chart (doughnut)
+        const typeCtx = document.getElementById('typeChart').getContext('2d');
+        if (analyticsCharts.type) analyticsCharts.type.destroy();
+        const typeLabels = Object.keys(data.byType || {});
+        const typeValues = Object.values(data.byType || {});
+        const colors = ['#4f8ef7','#2dd4bf','#c084fc','#f97316','#4ade80','#fbbf24','#f87171','#38bdf8','#a78bfa'];
+        analyticsCharts.type = new Chart(typeCtx, {
+          type: 'doughnut',
+          data: { labels: typeLabels, datasets: [{ data: typeValues, backgroundColor: colors, borderWidth: 2, borderColor: '#161b27' }] },
+          options: { plugins: { legend: { position: 'right', labels: { color: '#8899b4', font: { family: 'DM Sans', size: 11 } } } }, responsive: true, maintainAspectRatio: false }
+        });
+
+        // Daily chart
+        const dailyCtx = document.getElementById('dailyChart').getContext('2d');
+        if (analyticsCharts.daily) analyticsCharts.daily.destroy();
+        const dailyLabels = Object.keys(data.daily || {}).map(d => { const dt = new Date(d); return dt.toLocaleDateString('en-US',{month:'short',day:'numeric'}); });
+        const dailyValues = Object.values(data.daily || {});
+        analyticsCharts.daily = new Chart(dailyCtx, {
+          type: 'bar',
+          data: { labels: dailyLabels, datasets: [{ data: dailyValues, backgroundColor: 'rgba(79,142,247,0.6)', borderColor: '#4f8ef7', borderWidth: 1, borderRadius: 5 }] },
+          options: { plugins: { legend: { display: false } }, scales: {
+            x: { grid: { color: 'rgba(42,51,71,0.5)' }, ticks: { color: '#8899b4', font: { size: 10 } } },
+            y: { grid: { color: 'rgba(42,51,71,0.5)' }, ticks: { color: '#8899b4', stepSize: 1 }, beginAtZero: true }
+          }, responsive: true, maintainAspectRatio: false }
+        });
+
+        // Top nudges list
+        const sorted = Object.entries(data.byTitle || {}).sort((a,b) => b[1]-a[1]).slice(0,10);
+        const maxVal = sorted[0]?.[1] || 1;
+        const barColors = ['#4f8ef7','#2dd4bf','#c084fc','#f97316','#4ade80'];
+        document.getElementById('topNudgesList').innerHTML = sorted.length ? sorted.map(([title, count], i) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid rgba(42,51,71,0.3);">
+            <div style="width:22px;text-align:center;font-size:0.78rem;color:var(--muted);font-weight:600;">${i+1}</div>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:0.85rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(title)}</div>
+              <div style="height:4px;background:var(--border);border-radius:99px;margin-top:5px;overflow:hidden;">
+                <div style="height:100%;width:${Math.round(count/maxVal*100)}%;background:${barColors[i%barColors.length]};border-radius:99px;"></div>
+              </div>
+            </div>
+            <div style="font-size:0.82rem;font-weight:600;color:var(--muted);flex-shrink:0;">${count}</div>
+          </div>`).join('') : '<div style="color:var(--muted);font-size:0.875rem;">No completion data yet</div>';
+
+      } catch(e) {
+        console.error('Analytics error', e);
+      }
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function skeleton(n) {
+      return Array(n).fill('<div style="height:16px;background:rgba(42,51,71,0.5);border-radius:6px;margin:10px 0;animation:pulse 1.5s ease-in-out infinite;"></div>').join('');
+    }
+
+    loadStats();
+    loadUsers();
+</script>
+</body>
+</html>
