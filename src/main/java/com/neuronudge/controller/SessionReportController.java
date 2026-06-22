@@ -5,6 +5,7 @@ import com.neuronudge.repository.*;
 import com.neuronudge.security.JwtUtil;
 import com.neuronudge.service.EmailService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.*;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
@@ -22,6 +23,7 @@ import java.util.*;
 @RequestMapping("/api/reports")
 @RequiredArgsConstructor
 @CrossOrigin(origins = "*")
+@Slf4j
 public class SessionReportController {
 
     private final SessionReportRepository reportRepository;
@@ -76,12 +78,15 @@ public class SessionReportController {
         appointmentRepository.save(appt);
 
         // Generate PDF and email to patient
+        // Generate PDF and email to patient
         if (patient != null && patient.getEmail() != null) {
             try {
                 byte[] pdf = generatePdf(report, appt);
                 emailService.sendReportEmail(patient.getEmail(), patient.getName(), pdf, report);
             } catch (Exception e) {
-                // Report is saved; email failure is non-fatal
+                // Report is saved; email failure is non-fatal, but log it so it's not invisible
+                log.error("[SESSION REPORT EMAIL] Failed to send report to {}: {}",
+                        patient.getEmail(), e.getMessage(), e);
             }
         }
 

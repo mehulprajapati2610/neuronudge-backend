@@ -3,18 +3,18 @@ package com.neuronudge.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import jakarta.mail.internet.MimeMessage;
 
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class EmailService {
 
-    private final JavaMailSender mailSender;
+    @Value("${BREVO_API_KEY}")
+    private String brevoApiKey;
+
+    private final okhttp3.OkHttpClient client = new okhttp3.OkHttpClient();
 
     @Value("${app.email.from}")
     private String fromEmail;
@@ -129,55 +129,166 @@ public class EmailService {
     }
 
     private void sendHtml(String to, String subject, String html) throws Exception {
-        log.info("Attempting SMTP send from={} to={}", fromEmail, to);
-        MimeMessage msg = mailSender.createMimeMessage();
-        MimeMessageHelper helper = new MimeMessageHelper(msg, true, "UTF-8");
-        helper.setFrom(fromEmail);
-        helper.setTo(to);
-        helper.setSubject(subject);
-        helper.setText(html, true);
-        mailSender.send(msg);
+
+        String json = """
+    {
+      "sender":{
+        "name":"NeuroNudge",
+        "email":"%s"
+      },
+      "to":[
+        {
+          "email":"%s"
+        }
+      ],
+      "subject":"%s",
+      "htmlContent":%s
+    }
+    """.formatted(
+                fromEmail,
+                to,
+                subject.replace("\"", "\\\""),
+                new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(html)
+        );
+
+        okhttp3.RequestBody body =
+                okhttp3.RequestBody.create(
+                        json,
+                        okhttp3.MediaType.parse("application/json"));
+
+        okhttp3.Request request =
+                new okhttp3.Request.Builder()
+                        .url("https://api.brevo.com/v3/smtp/email")
+                        .post(body)
+                        .addHeader("accept", "application/json")
+                        .addHeader("api-key", brevoApiKey)
+                        .addHeader("content-type", "application/json")
+                        .build();
+
+        try (okhttp3.Response response = client.newCall(request).execute()) {
+
+            if (!response.isSuccessful()) {
+                throw new RuntimeException(
+                        "Brevo API Error: "
+                                + response.code()
+                                + " "
+                                + response.body().string());
+            }
+
+            log.info("Email sent successfully using Brevo.");
+        }
     }
 
     @Async
     public void sendReportEmail(String recipientEmail, String patientName,
                                 byte[] pdfBytes, com.neuronudge.model.SessionReport report) {
-        if (!emailEnabled) return;
+        log.info("=== SESSION REPORT EMAIL TRIGGERED ===");
+        log.info("emailEnabled = {}", emailEnabled);
+        log.info("to = {}, patient = {}", recipientEmail, patientName);
+
+        if (!emailEnabled) {
+            log.warn("[EMAIL DISABLED] Session report skipped for: {}", recipientEmail);
+            return;
+        }
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            log.warn("[EMAIL SKIPPED] No recipient email for session report");
+            return;
+        }
+
         try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true);
-            helper.setFrom(fromEmail);
-            helper.setTo(recipientEmail);
-            helper.setSubject("Your NeuroNudge Session Report — " +
-                    (report.getCreatedAt() != null
-                            ? report.getCreatedAt().toLocalDate().toString() : ""));
+            String dateStr = report.getCreatedAt() != null
+                    ? report.getCreatedAt().toLocalDate().toString() : "";
+            String doctorLine = report.getDoctorName() != null && !report.getDoctorName().isBlank()
+                    ? "Dr. " + report.getDoctorName() : "your doctor";
 
-            String html = "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;background:#f8fafc;padding:20px;'>"
-                    + "<div style='max-width:520px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;"
-                    + "box-shadow:0 2px 8px rgba(0,0,0,0.1);'>"
+            String html = "<!DOCTYPE html><html><body style='font-family:Arial,sans-serif;background:#f8fafc;margin:0;padding:20px;'>"
+                    + "<div style='max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);'>"
                     + "<div style='background:#0f1117;padding:28px 32px;'>"
-                    + "<div style='font-size:22px;font-weight:700;color:#fff;'>NeuroNudge</div>"
-                    + "<div style='color:#8899b4;font-size:13px;margin-top:4px;'>Session Report</div></div>"
+                    + "<div style='font-size:22px;font-weight:700;color:#ffffff;'>NeuroNudge</div>"
+                    + "<div style='color:#8899b4;font-size:13px;margin-top:4px;'>Session Report</div>"
+                    + "</div>"
                     + "<div style='padding:32px;'>"
-                    + "<p style='color:#374151;font-size:15px;'>Hi " + patientName + ",</p>"
-                    + "<p style='color:#374151;font-size:15px;line-height:1.6;'>Your session report from "
-                    + (report.getDoctorName() != null ? "Dr. " + report.getDoctorName() : "your doctor")
-                    + " is attached as a PDF. You can share this report when booking future appointments.</p>"
-                    + "<p style='color:#374151;font-size:15px;'>Take care of yourself.</p>"
-                    + "<p style='color:#8899b4;font-size:13px;'>— The NeuroNudge Team</p>"
-                    + "</div></div></body></html>";
+                    + "<p style='color:#374151;font-size:15px;margin:0 0 16px;'>Hi <strong>" + patientName + "</strong>,</p>"
+                    + "<p style='color:#374151;font-size:15px;line-height:1.6;margin:0 0 16px;'>Your session report from "
+                    + doctorLine + " (" + dateStr + ") is attached as a PDF. You can share this report when booking future appointments.</p>"
+                    + "<p style='color:#374151;font-size:15px;margin:0 0 8px;'>Take care of yourself.</p>"
+                    + "<p style='color:#8899b4;font-size:13px;margin:0;'>— The NeuroNudge Team</p>"
+                    + "</div>"
+                    + "<div style='background:#f8fafc;padding:16px 32px;text-align:center;border-top:1px solid #e5e7eb;'>"
+                    + "<div style='font-size:11px;color:#9ca3af;'>NeuroNudge Mental Wellness Platform</div>"
+                    + "</div>"
+                    + "</div></body></html>";
 
-            helper.setText(html, true);
+            sendHtmlWithAttachment(recipientEmail, "NeuroNudge — Your Session Report (" + dateStr + ")",
+                    html, pdfBytes, "NeuroNudge_Report.pdf");
 
-            // Attach PDF
-            helper.addAttachment("NeuroNudge_Report.pdf",
-                    new org.springframework.core.io.ByteArrayResource(pdfBytes),
-                    "application/pdf");
+            log.info("[EMAIL SENT] Session report delivered to: {}", recipientEmail);
 
-            mailSender.send(message);
-            log.info("[REPORT EMAIL] Sent to {}", recipientEmail);
         } catch (Exception e) {
-            log.error("[REPORT EMAIL] Failed: {}", e.getMessage());
+            log.error("[EMAIL FAILED] Could not send session report: {}", e.getMessage(), e);
+        }
+    }
+
+    private void sendHtmlWithAttachment(String to, String subject, String html,
+                                        byte[] attachmentBytes, String attachmentName) throws Exception {
+
+        String base64Attachment = java.util.Base64.getEncoder().encodeToString(attachmentBytes);
+        com.fasterxml.jackson.databind.ObjectMapper mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+
+        String json = """
+    {
+      "sender":{
+        "name":"NeuroNudge",
+        "email":"%s"
+      },
+      "to":[
+        {
+          "email":"%s"
+        }
+      ],
+      "subject":"%s",
+      "htmlContent":%s,
+      "attachment":[
+        {
+          "content":"%s",
+          "name":"%s"
+        }
+      ]
+    }
+    """.formatted(
+                fromEmail,
+                to,
+                subject.replace("\"", "\\\""),
+                mapper.writeValueAsString(html),
+                base64Attachment,
+                attachmentName
+        );
+
+        okhttp3.RequestBody body =
+                okhttp3.RequestBody.create(
+                        json,
+                        okhttp3.MediaType.parse("application/json"));
+
+        okhttp3.Request request =
+                new okhttp3.Request.Builder()
+                        .url("https://api.brevo.com/v3/smtp/email")
+                        .post(body)
+                        .addHeader("accept", "application/json")
+                        .addHeader("api-key", brevoApiKey)
+                        .addHeader("content-type", "application/json")
+                        .build();
+
+        try (okhttp3.Response response = client.newCall(request).execute()) {
+
+            if (!response.isSuccessful()) {
+                throw new RuntimeException(
+                        "Brevo API Error: "
+                                + response.code()
+                                + " "
+                                + response.body().string());
+            }
+
+            log.info("Email with attachment sent successfully using Brevo.");
         }
     }
 }
